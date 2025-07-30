@@ -2,20 +2,39 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 
-const dir = path.resolve(path.join(__dirname, "../../../src/uploads"));
-if (!fs.existsSync(dir)) {
-  fs.mkdirSync(dir);
-}
+const baseDir = path.resolve(path.join(__dirname, "../../../src/uploads"));
+
+const ensureDirExists = (subDir: string) => {
+  const fullPath = path.join(baseDir, subDir);
+  if (!fs.existsSync(fullPath)) {
+    fs.mkdirSync(fullPath, { recursive: true });
+  }
+  return fullPath;
+};
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    if (!file.mimetype.includes("image"))
+    let subDir = "";
+
+    if (file.mimetype.startsWith("image/")) {
+      subDir = "images";
+    } else if (file.mimetype.startsWith("audio/")) {
+      subDir = "audios";
+    } else if (file.mimetype.startsWith("video/")) {
+      subDir = "videos";
+    } else {
       return cb(
-        new Error(`Only image is allowed for the ${file.fieldname}`),
+        new Error(
+          `Only audio, video, and image files are allowed for the ${file.fieldname}`
+        ),
         null
       );
-    cb(null, dir);
+    }
+
+    const finalDir = ensureDirExists(subDir);
+    cb(null, finalDir);
   },
+
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const extension = path.extname(file.originalname).toLowerCase();
@@ -23,5 +42,5 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
 export default upload;

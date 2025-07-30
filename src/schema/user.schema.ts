@@ -1,5 +1,6 @@
 import Joi from "joi";
 import {
+  booleanValidation,
   emailValidation,
   numberValidation,
   ObjectIdValidation,
@@ -124,6 +125,15 @@ const updateUserProfileSchema = {
     teamSize: specificStringValidation("Team Size", teamSize, false),
 
     companyDescription: stringValidation("Company Description", false),
+    emailNotifications: booleanValidation("Email notifications", false),
+    pushNotifications: booleanValidation("Push notifications", false),
+    fundingAlerts: booleanValidation("Funding Alerts", false),
+    publicProfile: booleanValidation("Public Profile", false),
+    investmentActivity: booleanValidation("Investment Activity", false),
+    directMessages: booleanValidation("Direct Messages", false),
+    autoPreview: booleanValidation("Auto Preview", false),
+    language: booleanValidation("Language", false),
+    darkMode: booleanValidation("Dark Mode", false),
   }),
 };
 
@@ -149,6 +159,13 @@ const changePasswordSchema = {
   }),
 };
 
+const resetPasswordSchema = {
+  body: Joi.object({
+    oldPassword: stringValidation("Current Password", true),
+    newPassword: passwordValidation("New Password"),
+  }),
+};
+
 export default {
   registerUserSchema,
   loginUserSchema,
@@ -156,4 +173,5 @@ export default {
   verifyOTPSchema,
   sendOTPSchema,
   changePasswordSchema,
+  resetPasswordSchema,
 };

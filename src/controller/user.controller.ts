@@ -10,6 +10,7 @@ import {
   ChangePasswordType,
   LoginUserRequest,
   RegisterUserRequest,
+  ResetPasswordRequest,
   SendOTPRequest,
   UpdateUserProfileRequest,
   VerifyOTPRequest,
@@ -19,6 +20,7 @@ import User from "../model/user.model";
 import { getUserByEmail, getUserById } from "../services/user.services";
 import { userRoles } from "../utils/enums";
 import { sendEmail } from "../utils/sendEmail";
+import Likes from "../model/likes.model";
 
 const registerUser = TryCatch(
   async (
@@ -156,11 +158,20 @@ const updateUserProfile = TryCatch(
       teamSize,
       website,
       companyDescription,
+      emailNotifications,
+      pushNotifications,
+      fundingAlerts,
+      publicProfile,
+      investmentActivity,
+      directMessages,
+      autoPreview,
+      language,
+      darkMode,
     } = req.body;
 
     const { userId } = req;
 
-    const user = await getUserById(userId); 
+    const user = await getUserById(userId);
 
     if (email) {
       email = email.toLowerCase().trim();
@@ -198,6 +209,19 @@ const updateUserProfile = TryCatch(
     if (website !== undefined) updateData.website = website;
     if (spotify !== undefined) updateData.spotify = spotify;
     if (youtube !== undefined) updateData.youtube = youtube;
+    if (emailNotifications !== undefined)
+      updateData.emailNotifications = emailNotifications;
+    if (pushNotifications !== undefined)
+      updateData.pushNotifications = pushNotifications;
+    if (fundingAlerts !== undefined) updateData.fundingAlerts = fundingAlerts;
+    if (publicProfile !== undefined) updateData.publicProfile = publicProfile;
+    if (investmentActivity !== undefined)
+      updateData.investmentActivity = investmentActivity;
+    if (directMessages !== undefined)
+      updateData.directMessages = directMessages;
+    if (autoPreview !== undefined) updateData.autoPreview = autoPreview;
+    if (language !== undefined) updateData.language = language;
+    if (darkMode !== undefined) updateData.darkMode = darkMode;
     if (companyDescription !== undefined)
       updateData.companyDescription = companyDescription;
 
@@ -308,7 +332,38 @@ const deleteAccount = TryCatch(
     user.isDeleted = true;
     await user.save();
 
-    return SUCCESS(res,200,"User account deleted successfully")
+    return SUCCESS(res, 200, "User account deleted successfully");
+  }
+);
+
+const resetPassword = TryCatch(
+  async (
+    req: Request<{}, {}, ResetPasswordRequest>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    const { user } = req;
+    const { oldPassword, newPassword } = req.body;
+
+    const isOldPasswordValid = await user.matchPassword(oldPassword);
+    if (!isOldPasswordValid) {
+      return next(new ErrorHandler("Current password is incorrect", 400));
+    }
+
+    const isSamePassword = await user.matchPassword(newPassword);
+    if (isSamePassword) {
+      return next(
+        new ErrorHandler(
+          "New password must be different from current password",
+          400
+        )
+      );
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    return SUCCESS(res, 200, "Password reset successfully");
   }
 );
 
@@ -321,4 +376,5 @@ export default {
   verifyOtp,
   changePassword,
   deleteAccount,
+  resetPassword,
 };

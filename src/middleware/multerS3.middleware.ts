@@ -50,7 +50,7 @@ const uploadS3 = multer({
         if (isImage) {
           cb(null, imageDir);
         } else {
-          cb(null, chatDir);
+            cb(null, chatDir);
         }
       } catch (error) {
         console.log("error::", error);

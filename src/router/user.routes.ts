@@ -45,6 +45,12 @@ userRoutes.put(
   userController.changePassword
 );
 
+userRoutes.put(
+  "/resetPassword",
+  validate(userSchema.resetPasswordSchema),
+  userController.resetPassword
+);
+
 userRoutes.delete("/", authenticationMiddleware, userController.deleteAccount);
 
 export default userRoutes;

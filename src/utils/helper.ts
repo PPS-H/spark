@@ -3,7 +3,6 @@ import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import otpGenerator from "otp-generator";
 
-
 export const connectToDB = () => mongoose.connect(process.env.MONGO_URI);
 
 export const TryCatch =
@@ -11,9 +10,8 @@ export const TryCatch =
     Promise.resolve(func(req, res, next)).catch(next);
 
 export const generateJwtToken = (payload: any) => {
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1d" });
+  return jwt.sign(payload, process.env.JWT_SECRET);
 };
-
 
 export const generateRandomString = (length: number): string => {
   const characters =
@@ -49,9 +47,17 @@ export const getFiles = (req: Request, fileNames: Array<string>) => {
   const files: any = {};
   fileNames.forEach((fileKey: string) => {
     if (req.files && req.files[fileKey]) {
-      files[fileKey] = req.files[fileKey].map(
-        (file: any) => process.env.BACKEND_URL + "/uploads/" + file.filename
-      );
+      files[fileKey] = req.files[fileKey].map((file: any) => {
+        let subDir = "";
+        if (file.mimetype.startsWith("image/")) {
+          subDir = "images/";
+        } else if (file.mimetype.startsWith("audio/")) {
+          subDir = "audios/";
+        } else if (file.mimetype.startsWith("video/")) {
+          subDir = "videos/";
+        }
+        return "uploads/" + subDir + file.filename;
+      });
     }
   });
   if (Object.keys(files).length) return files;

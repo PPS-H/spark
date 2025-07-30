@@ -22,7 +22,11 @@ const userSchema = new Schema<UserModel>(
       },
     ],
     aboutTxt: { type: String },
-    role: { type: String, enum: Object.values(userRoles) },
+    role: {
+      type: String,
+      enum: Object.values(userRoles),
+      default: userRoles.FAN,
+    },
     artistBio: { type: String },
     socialMediaLinks: {
       instagram: { type: String },
@@ -37,6 +41,15 @@ const userSchema = new Schema<UserModel>(
     otp: { type: Number },
     otpExpiry: { type: Date },
     otpVerified: { type: Boolean },
+    emailNotifications: { type: Boolean },
+    pushNotifications: { type: Boolean },
+    fundingAlerts: { type: Boolean },
+    publicProfile: { type: Boolean },
+    investmentActivity: { type: Boolean },
+    directMessages: { type: Boolean },
+    autoPreview: { type: Boolean },
+    language: { type: Boolean },
+    darkMode: { type: Boolean },
   },
   { timestamps: true }
 );

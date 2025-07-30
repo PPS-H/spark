@@ -41,6 +41,16 @@ export type UpdateUserProfileRequest = {
   teamSize?: string;
   website?: string;
   companyDescription?: string;
+
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  fundingAlerts: boolean;
+  publicProfile: boolean;
+  investmentActivity: boolean;
+  directMessages: boolean;
+  autoPreview: boolean;
+  language: boolean;
+  darkMode: boolean;
 };
 
 export type SendOTPRequest = {
@@ -57,4 +67,9 @@ export type VerifyOTPRequest = {
 export type ChangePasswordType = {
   userId: string;
   password: string;
+};
+
+export type ResetPasswordRequest = {
+  oldPassword: string;
+  newPassword: string;
 };
