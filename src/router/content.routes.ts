@@ -33,6 +33,13 @@ contentRoutes.get(
   contentController.getTrendingContent
 );
 
+contentRoutes.get(
+  "/searchContent",
+  authenticationMiddleware,
+  validate(contentSchema.searchContentSchema),
+  contentController.searchContent
+);
+
 contentRoutes.put(
   "/likeDislikeContent/:contentId",
   authenticationMiddleware,

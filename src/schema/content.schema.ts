@@ -33,6 +33,13 @@ const getTrendingContentSchema = {
     page: numberValidation("Page", false),
     limit: numberValidation("Limit", false),
     type: specificStringValidation("Type", contentType, false),
+    search: stringValidation("Search", false),
+  }),
+};
+
+const searchContentSchema = {
+  query: Joi.object({
+    search: stringValidation("Search", false),
   }),
 };
 
@@ -40,5 +47,6 @@ export default {
   addContentSchema,
   getAllContentSchema,
   likeDislikeContentSchema,
-  getTrendingContentSchema
+  getTrendingContentSchema,
+  searchContentSchema,
 };

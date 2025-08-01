@@ -20,4 +20,11 @@ artistRoutes.put(
   artistController.likeDislikeArtist
 );
 
+artistRoutes.put(
+  "/followUnfollowArtist/:artistId",
+  authenticationMiddleware,
+  validate(artistSchema.likeDislikeArtistSchema),
+  artistController.followUnfollowArtist
+);
+
 export default artistRoutes;

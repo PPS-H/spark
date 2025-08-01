@@ -7,6 +7,7 @@ import { likesType, userRoles } from "../utils/enums";
 import { getUserById } from "../services/user.services";
 import ErrorHandler from "../utils/ErrorHandler";
 import { LikeDislikeRequest } from "../../types/API/Artist/types";
+import FollowUnfollow from "../model/followUnfollow.model";
 
 const getFeaturedArtists = TryCatch(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -120,6 +121,39 @@ const likeDislikeArtist = TryCatch(
   }
 );
 
+const followUnfollowArtist = TryCatch(
+  async (
+    req: Request<LikeDislikeRequest>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    const { userId } = req;
+    const { artistId } = req.params;
+
+    const artist = await getUserById(artistId);
+
+    if (artist.role != userRoles.ARTIST)
+      return new ErrorHandler("User is not an artist", 400);
+
+    const isAlreadyFollowed = await FollowUnfollow.findOne({
+      followedBy: userId,
+      artistId,
+    });
+
+    if (isAlreadyFollowed) {
+      await FollowUnfollow.deleteOne({ _id: isAlreadyFollowed._id });
+    } else {
+      await FollowUnfollow.create({ followedBy: userId, artistId });
+    }
+
+    return SUCCESS(
+      res,
+      200,
+      `Artist ${isAlreadyFollowed ? "Unfollowed" : "Followed"} successfully`
+    );
+  }
+);
+
 const searchArtist = TryCatch(
   async (req: Request, res: Response, next: NextFunction) => {}
 );
@@ -127,4 +161,5 @@ const searchArtist = TryCatch(
 export default {
   getFeaturedArtists,
   likeDislikeArtist,
+  followUnfollowArtist
 };

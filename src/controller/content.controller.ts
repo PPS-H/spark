@@ -7,10 +7,13 @@ import {
   GetContentRequest,
   GetTrendingContentRequest,
   LikeDislikeRequest,
+  SearchContentRequest,
 } from "../../types/API/Content/types";
 import { getUserById } from "../services/user.services";
 import { getContentById } from "../services/content.services";
 import Likes from "../model/likes.model";
+import User from "../model/user.model";
+import ErrorHandler from "../utils/ErrorHandler";
 
 const addContent = TryCatch(
   async (
@@ -70,6 +73,7 @@ const getAllContent = TryCatch(
     });
   }
 );
+
 const likeDislikeContent = TryCatch(
   async (
     req: Request<LikeDislikeRequest>,
@@ -100,6 +104,7 @@ const likeDislikeContent = TryCatch(
     );
   }
 );
+
 const getTrendingContent = TryCatch(
   async (
     req: Request<{}, {}, {}, GetTrendingContentRequest>,
@@ -107,190 +112,380 @@ const getTrendingContent = TryCatch(
     next: NextFunction
   ) => {
     const { user } = req;
-    const { page = 1, limit = 10, type } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      type = "top", // 'top', 'songs', 'artists'
+      search = "",
+    } = req.query;
 
     const dateThreshold = new Date(
       Date.now() - Number(7) * 24 * 60 * 60 * 1000
     );
 
-    // Build match conditions for content
-    let contentMatchConditions: any = {
-      isDeleted: false,
-      genre: { $regex: user.favoriteGenre, $options: "i" },
-    };
-
-    if (type) {
-      contentMatchConditions.type = type;
+    // Handle different types
+    if (type === "top") {
+      return await getTopContent(req, res, user, page, limit, dateThreshold);
+    } else if (type === "audio") {
+      return await getSongs(req, res, user, page, limit, search);
+    } else if (type === "artists") {
+      return await getArtists(req, res, user, page, limit, search);
+    } else {
+      return next(
+        new ErrorHandler(
+          "Invalid type. Must be 'top', 'songs', or 'artists'",
+          400
+        )
+      );
     }
-    
-    // Aggregate pipeline to get trending content based on likes
-    const trendingContentPipeline: any = [
-      // Match content criteria
-      { $match: contentMatchConditions },
+  }
+);
 
-      // Lookup likes for each content
-      {
-        $lookup: {
-          from: "likes",
-          let: { contentId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$contentId", "$$contentId"] },
-                    {
-                      $in: [
-                        "$type",
-                        [likesType.AUDIO, likesType.VIDEO, likesType.IMAGE],
-                      ],
-                    },
-                    // { $gte: ["$createdAt", dateThreshold] }, // Only recent likes
-                  ],
-                },
-              },
-            },
-          ],
-          as: "likes",
-        },
-      },
+// TOP CONTENT - Most popular trending videos/content
+const getTopContent = async (
+  req: any,
+  res: any,
+  user: any,
+  page: number,
+  limit: number,
+  dateThreshold: Date
+) => {
+  const contentMatchConditions: any = {
+    isDeleted: false,
+    type: { $in: [contentType.VIDEO, contentType.AUDIO, contentType.IMAGE] },
+  };
 
-      // Add like count and calculate trending score
-      {
-        $addFields: {
-          likeCount: { $size: "$likes" },
-          trendingScore: {
-            $add: [
-              { $size: "$likes" }, // Like count
-              {
-                $divide: [
-                  { $subtract: [new Date(), "$createdAt"] },
-                  86400000, // Divide by milliseconds in a day for recency factor
+  const trendingContentPipeline: any = [
+    { $match: contentMatchConditions },
+
+    // Lookup likes for each content
+    {
+      $lookup: {
+        from: "likes",
+        let: { contentId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$contentId", "$$contentId"] },
+                  {
+                    $in: [
+                      "$type",
+                      [likesType.AUDIO, likesType.VIDEO, likesType.IMAGE],
+                    ],
+                  },
+                  { $gte: ["$createdAt", dateThreshold] },
                 ],
               },
-            ],
-          },
-        },
-      },
-
-      // Filter content with at least some engagement
-      { $match: { likeCount: { $gte: 1 } } },
-
-      // Sort by trending score (higher is more trending)
-      { $sort: { trendingScore: -1, likeCount: -1, createdAt: -1 } },
-
-      // Lookup user details
-      {
-        $lookup: {
-          from: "users",
-          localField: "userId",
-          foreignField: "_id",
-          as: "user",
-          pipeline: [
-            {
-              $project: {
-                _id: 1,
-                username: 1,
-                email: 1,
-                role: 1,
-                artistBio: 1,
-                socialMediaLinks: 1,
-              },
             },
-          ],
-        },
+          },
+        ],
+        as: "likes",
       },
+    },
 
-      // Unwind user array
-      { $unwind: "$user" },
-
-      // Filter out deleted users
-      { $match: { "user.isDeleted": { $ne: true } } },
-
-      // Skip and limit for pagination
-      { $skip: (Number(page) - 1) * Number(limit) },
-      { $limit: Number(limit) },
-
-      // Final projection
-      {
-        $project: {
-          _id: 1,
-          title: 1,
-          file: 1,
-          genre: 1,
-          description: 1,
-          type: 1,
-          createdAt: 1,
-          likeCount: 1,
-          trendingScore: 1,
-          user: 1,
-        },
-      },
-    ];
-
-    const trendingContent = await Content.aggregate(trendingContentPipeline);
-
-    // Check which content is liked by current user
-    const contentIds = trendingContent.map((content) => content._id);
-    const userLikedContent = await Likes.find({
-      likedBy: user._id,
-      contentId: { $in: contentIds },
-      type: { $in: [likesType.AUDIO, likesType.VIDEO, likesType.IMAGE] },
-    }).distinct("contentId");
-
-    // Add isLiked field to each content
-    const contentWithIsLiked = trendingContent.map((content: any) => ({
-      ...content,
-      isLiked: userLikedContent.map(String).includes(content._id.toString()),
-    }));
-
-    // Get total count for pagination info
-    const totalCountPipeline = [
-      { $match: contentMatchConditions },
-      {
-        $lookup: {
-          from: "likes",
-          let: { contentId: "$_id" },
-          pipeline: [
+    // Add engagement metrics
+    {
+      $addFields: {
+        likeCount: { $size: "$likes" },
+        weeklyTrendingScore: {
+          $multiply: [
+            { $size: "$likes" }, // Like count
             {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$contentId", "$$contentId"] },
-                    {
-                      $in: [
-                        "$type",
-                        [likesType.AUDIO, likesType.VIDEO, likesType.IMAGE],
-                      ],
-                    },
-                    { $gte: ["$createdAt", dateThreshold] },
+              $subtract: [
+                2,
+                {
+                  $divide: [
+                    { $subtract: [new Date(), "$createdAt"] },
+                    604800000, // Week in milliseconds
                   ],
                 },
-              },
+              ],
             },
           ],
-          as: "likes",
         },
       },
-      {
-        $addFields: {
-          likeCount: { $size: "$likes" },
-        },
+    },
+
+    // Filter content with engagement
+    { $match: { likeCount: { $gte: 1 } } },
+
+    // Sort by weekly trending score
+    { $sort: { weeklyTrendingScore: -1, likeCount: -1, createdAt: -1 } },
+
+    // Lookup user details
+    {
+      $lookup: {
+        from: "users",
+        localField: "userId",
+        foreignField: "_id",
+        as: "user",
+        pipeline: [
+          {
+            $project: {
+              _id: 1,
+              username: 1,
+              email: 1,
+              role: 1,
+              artistBio: 1,
+              socialMediaLinks: 1,
+            },
+          },
+        ],
       },
-      { $match: { likeCount: { $gte: 1 } } },
-      { $count: "total" },
+    },
+
+    { $unwind: "$user" },
+    { $match: { "user.isDeleted": { $ne: true } } },
+    { $skip: (Number(page) - 1) * Number(limit) },
+    { $limit: Number(limit) },
+
+    {
+      $project: {
+        _id: 1,
+        title: 1,
+        file: 1,
+        genre: 1,
+        description: 1,
+        type: 1,
+        createdAt: 1,
+        likeCount: 1,
+        weeklyTrendingScore: 1,
+        user: 1,
+      },
+    },
+  ];
+
+  const topContent = await Content.aggregate(trendingContentPipeline);
+  const contentWithIsLiked = await addIsLikedField(topContent, user._id);
+
+  return SUCCESS(res, 200, "Top trending content fetched successfully", {
+    data: contentWithIsLiked,
+    type: "top",
+  });
+};
+
+// SONGS - Audio content only
+const getSongs = async (
+  req: any,
+  res: any,
+  user: any,
+  page: number,
+  limit: number,
+  search: string
+) => {
+  let matchConditions: any = {
+    isDeleted: false,
+    type: contentType.AUDIO, // Only audio content for songs
+  };
+
+  // Add search functionality
+  if (search) {
+    matchConditions.$or = [
+      { title: { $regex: search, $options: "i" } },
+      { genre: { $regex: search, $options: "i" } },
+      { description: { $regex: search, $options: "i" } },
     ];
+  }
 
-    const totalCountResult = await Content.aggregate(totalCountPipeline);
-    const totalCount = totalCountResult[0]?.total || 0;
+  // Filter by user's favorite genre if no search
+  if (!search && user.favoriteGenre) {
+    matchConditions.$or.push({
+      genre: { $regex: user.favoriteGenre, $options: "i" },
+    });
+  }
 
-    return SUCCESS(res, 200, "Trending content fetched successfully", {
-      data: contentWithIsLiked,
-      pagination: {
-        currentPage: Number(page),
-        totalPages: Math.ceil(totalCount / Number(limit)),
-        totalItems: totalCount,
-        itemsPerPage: Number(limit),
+  const songsPipeline: any = [
+    { $match: matchConditions },
+
+    // Lookup user details
+    {
+      $lookup: {
+        from: "users",
+        localField: "userId",
+        foreignField: "_id",
+        as: "user",
+        pipeline: [
+          {
+            $project: {
+              _id: 1,
+              username: 1,
+              email: 1,
+              role: 1,
+              artistBio: 1,
+              socialMediaLinks: 1,
+            },
+          },
+        ],
+      },
+    },
+
+    { $unwind: "$user" },
+    { $match: { "user.isDeleted": { $ne: true } } },
+
+    // Sort by most recent first
+    { $sort: { createdAt: -1 } },
+    { $skip: (Number(page) - 1) * Number(limit) },
+    { $limit: Number(limit) },
+
+    {
+      $project: {
+        _id: 1,
+        title: 1,
+        file: 1,
+        genre: 1,
+        description: 1,
+        type: 1,
+        createdAt: 1,
+        user: 1,
+      },
+    },
+  ];
+
+  const songs = await Content.aggregate(songsPipeline);
+  const songsWithIsLiked = await addIsLikedField(songs, user._id);
+
+  return SUCCESS(res, 200, "Songs fetched successfully", {
+    data: songsWithIsLiked,
+    type: "songs",
+  });
+};
+
+// ARTISTS - Artist search with recent searches
+const getArtists = async (
+  req: any,
+  res: any,
+  user: any,
+  page: number,
+  limit: number,
+  search: string
+) => {
+  let response: any = {};
+
+  // If no search term, show recent searches
+  if (!search || search.trim() === "") {
+    const recentSearches = await getRecentArtistSearches(user._id);
+    response.recentSearches = recentSearches;
+
+    // Also show some popular artists
+    const popularArtists = await User.find({
+      role: userRoles.ARTIST,
+      isDeleted: false,
+      _id: { $ne: user._id },
+    })
+      .select("_id username email role artistBio socialMediaLinks")
+      .limit(Number(limit))
+      .lean();
+
+    const artistsWithIsLiked = await addArtistIsLikedField(
+      popularArtists,
+      user._id
+    );
+    response.artists = artistsWithIsLiked;
+
+    return SUCCESS(res, 200, "Recent searches and popular artists fetched", {
+      data: response,
+      type: "artists",
+    });
+  }
+
+  // Search for artists based on search term
+  const searchResults = await User.find({
+    role: userRoles.ARTIST,
+    isDeleted: false,
+    _id: { $ne: user._id },
+    $or: [
+      { username: { $regex: `^${search}`, $options: "i" } }, // Starts with search term
+      { username: { $regex: search, $options: "i" } }, // Contains search term
+    ],
+  })
+    .select("_id username email role artistBio socialMediaLinks")
+    .sort({ username: 1 }) // Alphabetical order
+    .skip((Number(page) - 1) * Number(limit))
+    .limit(Number(limit))
+    .lean();
+
+  // Save search term for recent searches
+  await saveArtistSearch(user._id, search);
+
+  const artistsWithIsLiked = await addArtistIsLikedField(
+    searchResults,
+    user._id
+  );
+
+  return SUCCESS(res, 200, "Artist search results fetched", {
+    data: {
+      artists: artistsWithIsLiked,
+      searchTerm: search,
+    },
+    type: "artists",
+  });
+};
+
+// Helper function to add isLiked field for content
+const addIsLikedField = async (content: any[], userId: string) => {
+  const contentIds = content.map((item) => item._id);
+  const userLikedContent = await Likes.find({
+    likedBy: userId,
+    contentId: { $in: contentIds },
+    type: { $in: [likesType.AUDIO, likesType.VIDEO, likesType.IMAGE] },
+  }).distinct("contentId");
+
+  return content.map((item: any) => ({
+    ...item,
+    isLiked: userLikedContent.map(String).includes(item._id.toString()),
+  }));
+};
+
+// Helper function to add isLiked field for artists
+const addArtistIsLikedField = async (artists: any[], userId: string) => {
+  const artistIds = artists.map((artist) => artist._id);
+  const userLikedArtists = await Likes.find({
+    likedBy: userId,
+    artistId: { $in: artistIds },
+    type: likesType.ARTIST,
+  }).distinct("artistId");
+
+  return artists.map((artist: any) => ({
+    ...artist,
+    isLiked: userLikedArtists.map(String).includes(artist._id.toString()),
+  }));
+};
+
+// Helper functions for recent searches (you'll need to create a search history schema)
+const getRecentArtistSearches = async (userId: string) => {
+  // You'll need to create a SearchHistory model for this
+  // For now, returning empty array
+  return [];
+};
+
+const saveArtistSearch = async (userId: string, searchTerm: string) => {
+  // Save search term to search history
+  // Implementation depends on your search history schema
+};
+
+const searchContent = TryCatch(
+  async (
+    req: Request<{}, {}, {}, SearchContentRequest>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    const { search } = req.query;
+
+    const [content, artist] = await Promise.all([
+      Content.find({
+        title: { $regex: search, $options: "i" },
+      }),
+      User.find({
+        username: { $regex: search, $options: "i" },
+      }),
+    ]);
+
+    return SUCCESS(res, 200, "Content searched successfully", {
+      data: {
+        content,
+        artist,
       },
     });
   }
@@ -301,4 +496,5 @@ export default {
   getAllContent,
   likeDislikeContent,
   getTrendingContent,
+  searchContent,
 };

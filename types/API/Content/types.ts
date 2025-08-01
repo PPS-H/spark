@@ -13,5 +13,8 @@ export type LikeDislikeRequest = {
 export type GetTrendingContentRequest = {
   page: number;
   limit: number;
-  type: String;
+  type: string;
+  search: string;
 };
+
+export type SearchContentRequest = { search: string };
