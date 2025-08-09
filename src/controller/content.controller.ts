@@ -14,6 +14,7 @@ import { getContentById } from "../services/content.services";
 import Likes from "../model/likes.model";
 import User from "../model/user.model";
 import ErrorHandler from "../utils/ErrorHandler";
+import SearchHistory from "../model/searchHistory.model";
 
 const addContent = TryCatch(
   async (
@@ -455,14 +456,24 @@ const addArtistIsLikedField = async (artists: any[], userId: string) => {
 
 // Helper functions for recent searches (you'll need to create a search history schema)
 const getRecentArtistSearches = async (userId: string) => {
-  // You'll need to create a SearchHistory model for this
-  // For now, returning empty array
-  return [];
+  const searchTerms = await SearchHistory.find({
+    userId,
+  }).limit(5);
+  return searchTerms.map((item: any) => item.searchTerm);
 };
 
 const saveArtistSearch = async (userId: string, searchTerm: string) => {
-  // Save search term to search history
-  // Implementation depends on your search history schema
+  const isSearchExists = await SearchHistory.findOne({
+    userId,
+    searchTerm: { $regex: new RegExp(`^${searchTerm}`, "i") }, // Case-insensitive starts with match
+  });
+
+  if (!isSearchExists) {
+    await SearchHistory.create({
+      userId,
+      searchTerm,
+    });
+  }
 };
 
 const searchContent = TryCatch(

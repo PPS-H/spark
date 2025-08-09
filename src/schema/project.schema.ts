@@ -1,6 +1,10 @@
 import Joi from "joi";
-import { specificStringValidation, stringValidation } from ".";
-import { contentType, projectDurationType } from "../utils/enums";
+import {
+  ObjectIdValidation,
+  specificStringValidation,
+  stringValidation,
+} from ".";
+import { projectDurationType } from "../utils/enums";
 
 const createProjectSchema = {
   body: Joi.object({
@@ -11,6 +15,19 @@ const createProjectSchema = {
   }),
 };
 
+const updateProjectSchema = {
+  params: Joi.object({
+    projectId: ObjectIdValidation("Project ID"),
+  }),
+  body: Joi.object({
+    title: stringValidation("Title", false),
+    fundingGoal: stringValidation("Funding Goal", false),
+    description: stringValidation("Description", false),
+    duration: specificStringValidation("Duration", projectDurationType, false),
+  }),
+};
+
 export default {
   createProjectSchema,
+  updateProjectSchema,
 };

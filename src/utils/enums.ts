@@ -51,3 +51,29 @@ export const likesType = {
   IMAGE: "image",
   ARTIST: "artist",
 };
+
+export const investmentStatus = {
+  ACTIVE: "active",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+};
+
+export const investmentType = {
+  FAN: "fan",
+  LABEL: "label",
+};
+
+export const revenueSource = {
+  SPOTIFY: "spotify",
+  YOUTUBE: "youtube",
+  APPLE_MUSIC: "apple_music",
+  MERCHANDISE: "merchandise",
+  LIVE_SHOWS: "live_shows",
+  OTHER: "other",
+};
+
+export const payoutStatus = {
+  PENDING: "pending",
+  PROCESSED: "processed",
+  FAILED: "failed",
+};

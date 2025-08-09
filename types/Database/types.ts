@@ -1,24 +1,25 @@
+import { extend, string } from "joi";
 import { Document } from "mongoose";
 
 export interface UserModel extends Document {
-  username?: string;
+  username: string;
   email: string;
   password: string;
-  country?: string;
-  favoriteGenre?: string;
-  musicPlatforms?: string[];
-  aboutTxt?: string;
+  country: string;
+  favoriteGenre: string;
+  musicPlatforms: string[];
+  aboutTxt: string;
   role: string;
-  artistBio?: string;
-  socialMediaLinks?: {
-    instagram?: string;
-    youtube?: string;
-    spotify?: string;
+  artistBio: string;
+  socialMediaLinks: {
+    instagram: string;
+    youtube: string;
+    spotify: string;
   };
-  companyType?: string;
-  teamSize?: string;
-  website?: string;
-  companyDescription?: string;
+  companyType: string;
+  teamSize: string;
+  website: string;
+  companyDescription: string;
   isDeleted: boolean;
 
   otp: number;
@@ -58,6 +59,56 @@ export interface ProjectCampaignModel extends Document {
   duration: string;
   description: string;
 
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface InvestmentModel extends Document {
+  projectId: any;
+  investorId: any;
+  artistId: any;
+  amount: number;
+  ownershipPercentage: number;
+  expectedReturn: number;
+  actualReturn: number;
+  status: string;
+  investmentType: string;
+  paymentMethod: string;
+  transactionId: string;
+  maturityDate: any;
+  isDeleted: boolean;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PayoutModel extends Document {
+  investmentId: any;
+  investorId: any;
+  projectId: any;
+  amount: number;
+  ownershipShare: number;
+  revenueId: any;
+  status: string;
+  processedAt: Date;
+  transactionId: string;
+  paymentMethod: string;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface RevenueModel {
+  projectId: any;
+  artistId: any;
+  source: string;
+  amount: number;
+  streamCount: number;
+  country: string;
+  payoutRate: number;
+  currency: string;
+  platformData: Record<string, any>;
+  isProcessed: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
