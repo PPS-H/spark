@@ -4,11 +4,11 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "node --max-old-space-size=8192 ./node_modules/.bin/tsc --build",
+    "build": "tsc --build",
     "watch": "tsc --watch",
     "pre:dev": "nodemon dist/index.js",
     "dev": "concurrently \"npm run watch\" \"npm run pre:dev\"",
-    "start": "npm run build && node --max-old-space-size=8192 dist/index.js"
+    "start": "npm run build && node dist/index.js"
   },
   "keywords": [],
   "author": "",
