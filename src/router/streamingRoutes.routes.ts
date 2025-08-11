@@ -1,10 +1,12 @@
 import express from "express";
 import streamingAuthController from "../controller/streamingAuth.controller";
+import { authenticationMiddleware } from "../middleware/auth.middleware";
 
 const streamingAccountRoutes = express.Router();
 
 streamingAccountRoutes.get(
   "/connectSpotify",
+  authenticationMiddleware,
   streamingAuthController.connectSpotify
 );
 

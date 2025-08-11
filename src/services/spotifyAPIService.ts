@@ -22,6 +22,8 @@ class SpotifyOAuthService {
       'user-library-read'
     ].join(' ');
 
+    console.log('Spotify Authorization URL:', this.redirectUri,this.clientId, scopes, userId);
+
     const params = new URLSearchParams({
       client_id: this.clientId,
       response_type: 'code',

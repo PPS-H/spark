@@ -12,6 +12,7 @@ import Payout from "../model/payout.model";
 import Revenue from "../model/revenvue.model";
 import YouTubeAPIService from "../services/youtubeApiService";
 import SpotifyAPIService from "../services/spotifyAPIService";
+import StreamingAccount from "../model/streamingAccount.model";
 
 const createInvestment = TryCatch(
   async (
@@ -116,7 +117,7 @@ const calculateExpectedReturn = async (
       genreMultiplier: getGenreMultiplier(artist.favoriteGenre),
       countryMultiplier: getCountryMultiplier(artist.country),
       durationMultiplier: getDurationMultiplier(project.duration),
-      historicalPerformance: await getHistoricalPerformance(artist._id),
+      historicalPerformance: await getHistoricalPerformance(artist._id.toString()),
     };
 
     // Get historical streaming revenue (mock data - integrate with actual APIs)
@@ -215,123 +216,94 @@ const calculateRiskAdjustment = (factors: any): number => {
 
 const getHistoricalPerformance = async (artistId: string): Promise<any> => {
   try {
-    // Get artist info from database
-    const artist = await User.findById(artistId);
-    if (!artist) {
-      throw new Error('Artist not found');
-    }
+    // Get connected streaming accounts
+    const connectedAccounts = await StreamingAccount.find({
+      userId: artistId,
+      isActive: true
+    });
 
-    const spotifyService = new SpotifyAPIService();
-    const youtubeService = new YouTubeAPIService();
-
-    // Initialize performance data
     let performanceData = {
       monthlyRevenue: 0,
       growth: 0,
       totalStreams: 0,
       platforms: {
-        spotify: { streams: 0, revenue: 0, popularity: 0 },
+        spotify: { streams: 0, revenue: 0, popularity: 0, followers: 0 },
         youtube: { views: 0, revenue: 0, subscribers: 0 }
-      },
-      genre: artist.favoriteGenre,
-      country: artist.country
+      }
     };
 
-    // Get Spotify data
-    try {
-      const spotifyArtist = await spotifyService.searchArtist(artist.username);
-      if (spotifyArtist) {
-        const albums = await spotifyService.getArtistAlbums(spotifyArtist.id);
-        
-        let totalPopularity = 0;
-        let trackCount = 0;
-
-        // Get track analytics for recent releases
-        for (const album of albums.slice(0, 5)) { // Last 5 albums
-          for (const track of album.tracks?.items?.slice(0, 3) || []) { // 3 tracks per album
-            const analytics = await spotifyService.getTrackAnalytics(track.id);
-            if (analytics) {
-              totalPopularity += analytics.track.popularity;
-              trackCount++;
-            }
-          }
-        }
-
-        const avgPopularity = trackCount > 0 ? totalPopularity / trackCount : 0;
-        
-        // Estimate streams and revenue based on popularity
-        const estimatedMonthlyStreams = Math.floor(avgPopularity * 1000 + Math.random() * 50000);
-        const spotifyPayoutRate = getSpotifyPayoutRate(artist.country);
-        
-        performanceData.platforms.spotify = {
-          streams: estimatedMonthlyStreams,
-          revenue: estimatedMonthlyStreams * spotifyPayoutRate,
-          popularity: avgPopularity
-        };
-      }
-    } catch (error) {
-      console.error('Spotify API error:', error);
-    }
-
-    // Get YouTube data
-    try {
-      const youtubeChannel = await youtubeService.searchChannel(artist.username);
-      if (youtubeChannel) {
-        const channelStats = await youtubeService.getChannelStatistics(youtubeChannel.id.channelId);
-        const recentVideos = await youtubeService.getRecentVideos(youtubeChannel.id.channelId, 5);
-        
-        if (channelStats) {
-          // Calculate average monthly views from recent videos
-          const totalRecentViews = recentVideos.reduce((sum, video) => 
-            sum + (video.statistics?.viewCount || 0), 0);
-          const avgMonthlyViews = totalRecentViews / Math.max(recentVideos.length, 1);
+    for (const account of connectedAccounts) {
+      if (account.platform === 'spotify') {
+        // Use actual Spotify data from user's account
+        const spotifyData = account.platformData;
+        if (spotifyData) {
+          // Calculate streams from top tracks and popularity
+          const totalPopularity = spotifyData.topTracks.shortTerm.reduce(
+            (sum: number, track: any) => sum + track.popularity, 0
+          );
+          const avgPopularity = totalPopularity / spotifyData.topTracks.shortTerm.length;
           
-          const youtubePayoutRate = getYouTubePayoutRate(artist.country);
+          // Estimate monthly streams based on actual track performance
+          const estimatedMonthlyStreams = spotifyData.topTracks.shortTerm.reduce(
+            (sum: number, track: any) => sum + (track.popularity * 100), 0
+          );
+          
+          const spotifyRevenue = estimatedMonthlyStreams * getSpotifyPayoutRate('US'); // Use user's country
+          
+          performanceData.platforms.spotify = {
+            streams: estimatedMonthlyStreams,
+            revenue: spotifyRevenue,
+            popularity: avgPopularity,
+            followers: spotifyData.profile.followers.total
+          };
+        }
+      } else if (account.platform === 'youtube') {
+        // Use actual YouTube data
+        const youtubeData = account.platformData;
+        if (youtubeData) {
+          // Calculate monthly views from recent videos
+          const recentViews = youtubeData.recentVideos.reduce(
+            (sum: number, video: any) => sum + parseInt(video.statistics.viewCount || 0), 0
+          );
+          
+          const monthlyViews = recentViews / 3; // Assume last 3 months of data
+          const youtubeRevenue = monthlyViews * getYouTubePayoutRate('US');
           
           performanceData.platforms.youtube = {
-            views: avgMonthlyViews,
-            revenue: avgMonthlyViews * youtubePayoutRate,
-            subscribers: channelStats.subscriberCount
+            views: monthlyViews,
+            revenue: youtubeRevenue,
+            subscribers: youtubeData.channel.subscriberCount
           };
         }
       }
-    } catch (error) {
-      console.error('YouTube API error:', error);
     }
 
-    // Calculate total performance metrics
+    // Calculate totals
     performanceData.monthlyRevenue = 
       performanceData.platforms.spotify.revenue + 
       performanceData.platforms.youtube.revenue;
-
+      
     performanceData.totalStreams = 
       performanceData.platforms.spotify.streams + 
       performanceData.platforms.youtube.views;
 
-    // Calculate growth based on historical data (if available)
-    performanceData.growth = await calculateGrowthRate(artistId, performanceData.monthlyRevenue);
+    // Calculate growth from historical data
+    // performanceData.growth = await calculateGrowthRate(artistId, performanceData.monthlyRevenue);
 
-    // Store historical data for future reference
-    await storeHistoricalData(artistId, performanceData);
+    // Store updated performance data
+    // await storeHistoricalData(artistId, performanceData);
 
     return performanceData;
 
   } catch (error) {
-    console.error('Error getting historical performance:', error);
+    console.error('Error getting historical performance from connected accounts:', error);
     
-    // Fallback to database stored data or default values
-    const fallbackData = await getStoredHistoricalData(artistId);
-    return fallbackData || {
-      monthlyRevenue: Math.random() * 5000 + 1000,
-      growth: Math.random() * 0.4 - 0.2,
-      totalStreams: Math.floor(Math.random() * 1000000) + 100000,
-      platforms: {
-        spotify: { streams: 0, revenue: 0, popularity: 0 },
-        youtube: { views: 0, revenue: 0, subscribers: 0 }
-      }
-    };
+    // Fallback to stored data
+    // const fallbackData = await getStoredHistoricalData(artistId);
+    // return fallbackData || getDefaultPerformanceData();
   }
 };
+
 
 
 const getDurationInMonths = (duration: string): number => {
