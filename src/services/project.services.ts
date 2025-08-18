@@ -1,58 +1,4 @@
-import { UserModel } from "../../types/Database/types";
 import StreamingAccount from "../model/streamingAccount.model";
-import User from "../model/user.model";
-import ErrorHandler from "../utils/ErrorHandler";
-
-export const getUserById = async (userId: string): Promise<UserModel> => {
-  const user = await User.findOne({ _id: userId, isDeleted: false });
-  if (!user) throw new ErrorHandler("User not found", 400);
-
-  return user;
-};
-
-export const getUserByEmail = async (
-  email: string
-): Promise<UserModel | null> => {
-  const user = await User.findOne({
-    email: email,
-    isDeleted: false,
-  });
-  if (!user) return null;
-
-  return user;
-};
-
-// Helper functions for return calculation
-export const getGenreMultiplier = (genre: string): number => {
-  const genreMultipliers: { [key: string]: number } = {
-    pop: 1.3,
-    "hip-hop": 1.4,
-    electronic: 1.2,
-    rock: 1.1,
-    jazz: 0.9,
-    classical: 0.8,
-    country: 1.0,
-    "r&b": 1.2,
-    indie: 1.0,
-  };
-
-  return genreMultipliers[genre?.toLowerCase()] || 1.0;
-};
-
-export const getCountryMultiplier = (country: string): number => {
-  const countryMultipliers: { [key: string]: number } = {
-    US: 1.5,
-    UK: 1.3,
-    Germany: 1.2,
-    France: 1.1,
-    Canada: 1.2,
-    Australia: 1.1,
-    India: 0.8,
-    Brazil: 0.9,
-  };
-
-  return countryMultipliers[country] || 1.0;
-};
 
 export const getHistoricalPerformance = async (
   artistId: string
@@ -189,4 +135,14 @@ const getYouTubePayoutRate = (country: string): number => {
   };
 
   return payoutRates[country] || 0.001; // Default rate
+};
+
+export const determineRiskLevel = (
+  confidence: number,
+  roiPercentage: number
+): string => {
+  if (confidence >= 75 && roiPercentage > 15) return "Low";
+  if (confidence >= 60 && roiPercentage > 8) return "Medium";
+  if (confidence >= 40 && roiPercentage > 0) return "Medium-High";
+  return "High";
 };

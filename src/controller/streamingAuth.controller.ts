@@ -131,7 +131,7 @@ const getConnectedAccounts = TryCatch(
     const connectedAccounts = await StreamingAccount.find({
       userId,
       isActive: true,
-    }).select("-accessToken -refreshToken"); // Don't expose tokens
+    }).select("-accessToken -refreshToken -platformData"); // Don't expose tokens
 
     return SUCCESS(res, 200, "Connected accounts fetched successfully", {
       data: connectedAccounts,

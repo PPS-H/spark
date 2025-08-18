@@ -96,8 +96,7 @@ const likeDislikeArtist = TryCatch(
   ) => {
     const { userId } = req;
     const { artistId } = req.params;
-
-    const artist = await getUserById(artistId);
+     const artist = await getUserById(artistId);
 
     if (artist.role != userRoles.ARTIST)
       return new ErrorHandler("User is not an artist", 400);

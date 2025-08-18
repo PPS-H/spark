@@ -26,4 +26,11 @@ projectRoutes.put(
   projectController.updateProject
 );
 
+projectRoutes.get(
+  "/:projectId",
+  authenticationMiddleware,
+  validate(projectSchema.updateProjectSchema),
+  projectController.getProjectROIData
+);
+
 export default projectRoutes;

@@ -77,3 +77,8 @@ export const payoutStatus = {
   PROCESSED: "processed",
   FAILED: "failed",
 };
+
+export const projectStatus = {
+  DRAFT: "draft",
+  ACTIVE: "active",
+};

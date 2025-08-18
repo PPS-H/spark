@@ -1,5 +1,6 @@
 import Joi from "joi";
 import {
+  numberValidation,
   ObjectIdValidation,
   specificStringValidation,
   stringValidation,
@@ -8,12 +9,79 @@ import { projectDurationType } from "../utils/enums";
 
 const createProjectSchema = {
   body: Joi.object({
-    title: stringValidation("Title"),
-    fundingGoal: stringValidation("Funding Goal"),
+    title: stringValidation("Project Title"),
+    fundingGoal: numberValidation("Funding Goal"),
     description: stringValidation("Description"),
     duration: specificStringValidation("Duration", projectDurationType),
-  }),
+    
+    // Required metadata fields
+    songTitle: stringValidation("Song Title"),
+    artistName: stringValidation("Artist Name"),
+    isrcCode: Joi.string()
+      .pattern(/^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'ISRC code must be in format: CC-XXX-YY-NNNNN',
+        'any.required': 'ISRC code is required'
+      }),
+    upcCode: Joi.string()
+      .pattern(/^[0-9]{12}$/)
+      .optional()
+      .messages({
+        'string.pattern.base': 'UPC code must be exactly 12 digits'
+      }),
+    
+    // Spotify (Required)
+    spotifyTrackLink: Joi.string()
+      .uri()
+      .required()
+      .messages({
+        'string.uri': 'Spotify track link must be a valid URL',
+        'any.required': 'Spotify track link is required'
+      }),
+    spotifyTrackId: Joi.string()
+      .pattern(/^[a-zA-Z0-9]{22}$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'Spotify track ID must be exactly 22 characters',
+        'any.required': 'Spotify track ID is required'
+      }),
+    
+    // YouTube Music (Optional)
+    youtubeMusicLink: Joi.string()
+      .uri()
+      .optional()
+      .messages({
+        'string.uri': 'YouTube Music link must be a valid URL'
+      }),
+    youtubeVideoId: Joi.string()
+      .pattern(/^[a-zA-Z0-9_-]{11}$/)
+      .optional()
+      .messages({
+        'string.pattern.base': 'YouTube video ID must be exactly 11 characters'
+      }),
+    
+    // Deezer (Optional)
+    deezerTrackLink: Joi.string()
+      .uri()
+      .optional()
+      .messages({
+        'string.uri': 'Deezer track link must be a valid URL'
+      }),
+    deezerTrackId: Joi.string()
+      .pattern(/^[0-9]+$/)
+      .optional()
+      .messages({
+        'string.pattern.base': 'Deezer track ID must be numeric'
+      }),
+    
+    // Additional fields
+    releaseType: Joi.string().valid('single', 'album', 'ep').required(),
+    expectedReleaseDate: Joi.date().optional(),
+    fundingDeadline: Joi.date().greater('now').optional()
+  })
 };
+
 
 const updateProjectSchema = {
   params: Joi.object({
@@ -21,7 +89,7 @@ const updateProjectSchema = {
   }),
   body: Joi.object({
     title: stringValidation("Title", false),
-    fundingGoal: stringValidation("Funding Goal", false),
+    fundingGoal: numberValidation("Funding Goal", false),
     description: stringValidation("Description", false),
     duration: specificStringValidation("Duration", projectDurationType, false),
   }),

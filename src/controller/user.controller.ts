@@ -17,7 +17,10 @@ import {
 } from "../../types/API/User/types";
 import ErrorHandler from "../utils/ErrorHandler";
 import User from "../model/user.model";
-import { getUserByEmail, getUserById } from "../services/user.services";
+import {
+  getUserByEmail,
+  getUserById,
+} from "../services/user.services";
 import { userRoles } from "../utils/enums";
 import { sendEmail } from "../utils/sendEmail";
 import Likes from "../model/likes.model";
@@ -366,6 +369,7 @@ const resetPassword = TryCatch(
     return SUCCESS(res, 200, "Password reset successfully");
   }
 );
+
 
 export default {
   registerUser,

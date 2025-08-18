@@ -3,6 +3,23 @@ export type CreateProjectRequest = {
   fundingGoal: string;
   description: string;
   duration: string;
+  songTitle: string;
+  artistName: string;
+  isrcCode: string;
+  upcCode?: string;
+  spotifyTrackLink: string;
+  spotifyTrackId: string;
+  youtubeMusicLink?: string;
+  youtubeVideoId?: string;
+  deezerTrackLink?: string;
+  deezerTrackId?: string;
+  releaseType: 'single' | 'album' | 'ep';
+  genre: string;
+  releaseDate?: string;
+  expectedReleaseDate?: string;
+  fundingDeadline?: string;
+
+
 };
 
 export type UpdateProjectRequest = {

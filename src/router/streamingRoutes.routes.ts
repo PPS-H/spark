@@ -27,6 +27,7 @@ streamingAccountRoutes.get(
 
 streamingAccountRoutes.get(
   "/getStreamingAccounts",
+  authenticationMiddleware,
   streamingAuthController.getConnectedAccounts
 );
 

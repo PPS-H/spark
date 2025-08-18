@@ -111,7 +111,7 @@ const getTrendingContent = TryCatch(
     req: Request<{}, {}, {}, GetTrendingContentRequest>,
     res: Response,
     next: NextFunction
-  ) => {
+  ) =>  {
     const { user } = req;
     const {
       page = 1,
@@ -385,6 +385,7 @@ const getArtists = async (
     );
     response.artists = artistsWithIsLiked;
 
+    
     return SUCCESS(res, 200, "Recent searches and popular artists fetched", {
       data: response,
       type: "artists",
