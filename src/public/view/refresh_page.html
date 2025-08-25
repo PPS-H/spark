@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Account Linking Failed</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        /* background: linear-gradient(135deg, #FFC0CB, #FF5733); */
+        background: linear-gradient(
+          45deg,
+          rgba(249, 115, 22, 0.5),
+          rgb(249, 115, 22)
+        );
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      .container {
+        max-width: 500px;
+        background-color: rgba(255, 255, 255, 0.9);
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        animation: fadeIn 1s ease;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      h1 {
+        color: #ea580c;
+        font-size: 36px;
+        margin-bottom: 20px;
+        position: relative;
+        display: inline-block;
+      }
+      h1:before,
+      h1:after {
+        content: "";
+        position: absolute;
+        background-color: #ff5733;
+        height: 4px;
+        width: 50px;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+      h1:before {
+        right: calc(100% + 15px);
+      }
+      h1:after {
+        left: calc(100% + 15px);
+      }
+      p {
+        color: #333;
+        font-size: 18px;
+        line-height: 1.6;
+        margin-bottom: 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Account Linking Failed</h1>
+      <p>
+        Oops! It seems there was an issue while linking your account with
+        Stripe.
+      </p>
+    </div>
+  </body>
+</html>

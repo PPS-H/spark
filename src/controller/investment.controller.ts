@@ -250,6 +250,7 @@ const getHistoricalPerformance = async (artistId: string): Promise<any> => {
 
     // Calculate totals
     performanceData.monthlyRevenue =
+
       performanceData.platforms.spotify.revenue +
       performanceData.platforms.youtube.revenue;
 

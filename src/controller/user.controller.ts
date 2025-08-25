@@ -18,6 +18,8 @@ import {
 import ErrorHandler from "../utils/ErrorHandler";
 import User from "../model/user.model";
 import {
+  getArtistDashboardData,
+  getLabelDahsboarData,
   getUserByEmail,
   getUserById,
 } from "../services/user.services";
@@ -370,6 +372,29 @@ const resetPassword = TryCatch(
   }
 );
 
+const getDashboardStats = TryCatch(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { user } = req;
+    let stats: any;
+
+    if (user.role == userRoles.FAN) {
+      return next(
+        new ErrorHandler("You are not authorized tio access the route", 400)
+      );
+    }
+
+    if (user.role == userRoles.ARTIST) {
+      stats = await getArtistDashboardData(user._id);
+    }
+    if (user.role == userRoles.LABEL) {
+      stats = getLabelDahsboarData(user._id);
+    }
+
+    return SUCCESS(res, 200, "Stats fetched successfully", {
+      stats,
+    });
+  }
+);
 
 export default {
   registerUser,
@@ -381,4 +406,5 @@ export default {
   changePassword,
   deleteAccount,
   resetPassword,
+  getDashboardStats,
 };

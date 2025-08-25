@@ -1,4 +1,14 @@
+import Payment from "../model/payment.model";
+import Project from "../model/projectCampaign.model";
 import StreamingAccount from "../model/streamingAccount.model";
+import ErrorHandler from "../utils/ErrorHandler";
+
+export const getProjectById = async (projectId: string): Promise<any> => {
+  const project = await Project.findOne({ _id: projectId, isDeleted: false });
+  if (!project) throw new ErrorHandler("Project not found", 400);
+
+  return project;
+};
 
 export const getHistoricalPerformance = async (
   artistId: string
@@ -146,3 +156,78 @@ export const determineRiskLevel = (
   if (confidence >= 40 && roiPercentage > 0) return "Medium-High";
   return "High";
 };
+
+export const getProjectFundingStats = async (projectId: string) => {
+  // 1. Find the project first
+  const project = await getProjectById(projectId);
+  // 2. Sum all successful payments for this project
+  const result = await Payment.aggregate([
+    {
+      $match: {
+        projectId: project._id,
+        status: "SUCCESS", // only count successful investments
+      },
+    },
+    {
+      $group: {
+        _id: "$projectId",
+        totalInvested: { $sum: "$amount" },
+      },
+    },
+  ]);
+
+  const totalInvested = result.length > 0 ? result[0].totalInvested : 0;
+
+  // 3. Calculate funding percentage
+  const fundingGoal = project.fundingGoal || 0;
+  const fundedPercentage =
+    fundingGoal > 0 ? (totalInvested / fundingGoal) * 100 : 0;
+
+  return {
+    projectId,
+    totalInvested,
+    fundingGoal,
+    fundedPercentage: fundedPercentage.toFixed(2), // round to 2 decimals
+  };
+};
+
+export const getUserTotalFundsRaised = async (userId: string) => {
+  // Step 1: Fetch all project IDs created by the user
+  const projects = await Project.find({ userId }).select("_id fundingGoal").lean();
+  if (!projects.length) {
+    return { userId, totalRaised: 0, totalFundingGoal: 0, fundedPercentage: 0 };
+  }
+
+  const projectIds = projects.map((p) => p._id);
+  const totalFundingGoal = projects.reduce((sum, p) => sum + (p.fundingGoal || 0), 0);
+
+  // Step 2: Aggregate total invested across all projects
+  const result = await Payment.aggregate([
+    {
+      $match: {
+        projectId: { $in: projectIds },
+        status: "SUCCESS", // only successful investments
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalRaised: { $sum: "$amount" },
+      },
+    },
+  ]);
+
+  const totalRaised = result.length > 0 ? result[0].totalRaised : 0;
+
+  // Step 3: Calculate overall funding %
+  const fundedPercentage =
+    totalFundingGoal > 0 ? (totalRaised / totalFundingGoal) * 100 : 0;
+
+  return {
+    userId,
+    totalRaised,
+    totalFundingGoal,
+    fundedPercentage: fundedPercentage.toFixed(2),
+  };
+};
+

@@ -51,6 +51,11 @@ userRoutes.put(
   userController.resetPassword
 );
 
+userRoutes.get(
+  "/getDashboardStats",
+  authenticationMiddleware,
+  userController.getDashboardStats
+);
 userRoutes.delete("/", authenticationMiddleware, userController.deleteAccount);
 
 export default userRoutes;

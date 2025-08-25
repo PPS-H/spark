@@ -4,6 +4,7 @@ import morgan from "morgan";
 import { connectToDB } from "./src/utils/helper";
 import { errorMiddleware } from "./src/middleware/error.middleware";
 import router from "./src/router";
+import path from "path";
 
 const app = express();
 
@@ -12,6 +13,8 @@ app.use(morgan("tiny"));
 
 app.use("/api/v1",router)
 app.use(errorMiddleware);
+
+app.use(express.static(path.join(__dirname, "../src/public/view")));
 
 
 connectToDB()

@@ -36,6 +36,11 @@ export interface UserModel extends Document {
   language: boolean;
   darkMode: boolean;
 
+  stripeCustomerId: string;
+  stripeConnectId: string;
+  isStripeAccountConnected: boolean;
+  isPaymentMethodAdded: boolean;
+
   matchPassword(password: string): Promise<boolean>;
 }
 
@@ -109,6 +114,22 @@ export interface RevenueModel {
   currency: string;
   platformData: Record<string, any>;
   isProcessed: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PaymentModel extends Document {
+  userId: any;
+  projectId: any;
+  amount: number;
+  expectedReturn: number;
+  transactionDate: Date;
+  cardId?: string;
+  transactionId?: string;
+  transferId?: string;
+  paymentIntentId?: string;
+  status: string;
+
   createdAt: Date;
   updatedAt: Date;
 }

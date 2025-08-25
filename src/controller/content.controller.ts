@@ -238,7 +238,7 @@ const getTopContent = async (
     },
 
     { $unwind: "$user" },
-    { $match: { "user.isDeleted": { $ne: true } } },
+    { $match: { "user.isDeleted": { $ne: true } } }, 
     { $skip: (Number(page) - 1) * Number(limit) },
     { $limit: Number(limit) },
 
@@ -492,7 +492,7 @@ const searchContent = TryCatch(
       User.find({
         username: { $regex: search, $options: "i" },
       }),
-    ]);
+  0  ]);
 
     return SUCCESS(res, 200, "Content searched successfully", {
       data: {

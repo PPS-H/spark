@@ -50,6 +50,11 @@ const userSchema = new Schema<UserModel>(
     autoPreview: { type: Boolean },
     language: { type: Boolean },
     darkMode: { type: Boolean },
+
+    stripeCustomerId: { type: String },
+    stripeConnectId: { type: String },
+    isStripeAccountConnected: { type: Boolean, default: false },
+    isPaymentMethodAdded: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

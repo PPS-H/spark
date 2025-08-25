@@ -1,7 +1,10 @@
 import { UserModel } from "../../types/Database/types";
+import Project from "../model/projectCampaign.model";
 import StreamingAccount from "../model/streamingAccount.model";
 import User from "../model/user.model";
+import { projectStatus, userRoles } from "../utils/enums";
 import ErrorHandler from "../utils/ErrorHandler";
+import { getUserTotalFundsRaised } from "./project.services";
 
 export const getUserById = async (userId: string): Promise<UserModel> => {
   const user = await User.findOne({ _id: userId, isDeleted: false });
@@ -189,4 +192,37 @@ const getYouTubePayoutRate = (country: string): number => {
   };
 
   return payoutRates[country] || 0.001; // Default rate
+};
+
+export const getArtistDashboardData = async (userId: any) => {
+  const [fundingStats, activeProjectsCount, latestProjects] = await Promise.all(
+    [
+      getUserTotalFundsRaised(userId),
+      await Project.countDocuments({
+        status: projectStatus.ACTIVE,
+      }),
+      Project.find({
+        artistId: userId,
+        isDeleted: false,
+      })
+        .sort({ createdAt: -1 })
+        .limit(5),
+    ]
+  );
+
+  return {
+    fundingStats,
+    activeProjectsCount,
+    latestProjects,
+  };
+};
+
+export const getLabelDahsboarData = async (userId: any) => {
+  // I want to get top performing artists
+  const topArtists = await User.find({
+    role: userRoles.ARTIST,
+    isDeleted: false,
+  })
+    .sort({ totalFundsRaised: -1 })
+    .limit(5);
 };

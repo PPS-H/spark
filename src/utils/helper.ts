@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import otpGenerator from "otp-generator";
+import Stripe from "stripe";
+
+
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
 
 export const connectToDB = () => mongoose.connect(process.env.MONGO_URI);
 

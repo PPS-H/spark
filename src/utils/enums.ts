@@ -82,3 +82,8 @@ export const projectStatus = {
   DRAFT: "draft",
   ACTIVE: "active",
 };
+
+export const paymentStatus = {
+  SUCCESS: "success",
+  FAILED: "failed",
+};

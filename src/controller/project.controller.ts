@@ -415,7 +415,7 @@ const getProjectROIData = TryCatch(
 
     // Get monthly listeners from historical data
     const historicalData = await getHistoricalPerformance(
-      project.userId.toString()
+      project.userId._id.toString()
     );
     const monthlyListeners =
       historicalData?.platforms?.spotify?.followers ||
