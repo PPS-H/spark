@@ -60,6 +60,7 @@ const getAllContent = TryCatch(
     next: NextFunction
   ) => {
     const { userId } = req;
+    console.log("userId============", userId);
     const { type } = req.query;
 
     const query: any = { userId };

@@ -396,6 +396,26 @@ const getDashboardStats = TryCatch(
   }
 );
 
+
+const updatePassword = TryCatch(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = req;
+    const { password , oldPassword } = req.body;
+    const user = await getUserById(userId);
+    const isOldPasswordValid = await user.matchPassword(oldPassword);
+    if (!isOldPasswordValid) {
+      return next(new ErrorHandler("Current password is incorrect", 400));
+    }
+    const isSamePassword = await user.matchPassword(password);
+    if (isSamePassword) {
+      return next(new ErrorHandler("New password must be different from current password", 400));
+    }
+    user.password = password;
+    await user.save();
+    return SUCCESS(res, 200, "Password updated successfully");
+  }
+);
+
 export default {
   registerUser,
   loginUser,
@@ -407,4 +427,5 @@ export default {
   deleteAccount,
   resetPassword,
   getDashboardStats,
+  updatePassword
 };

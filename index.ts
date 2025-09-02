@@ -5,11 +5,23 @@ import { connectToDB } from "./src/utils/helper";
 import { errorMiddleware } from "./src/middleware/error.middleware";
 import router from "./src/router";
 import path from "path";
+import cors from "cors";  
 
 const app = express();
 
 app.use(express.json());
+app.use(cors({
+  origin: 'http://localhost:5174',
+  credentials: true
+}));
+
+const uploadsPath = path.join(process.cwd(), "src/uploads");
+console.log("Uploads directory path:", uploadsPath);
+
+
 app.use(morgan("tiny"));
+app.use("/uploads", express.static(uploadsPath));
+
 
 app.use("/api/v1",router)
 app.use(errorMiddleware);

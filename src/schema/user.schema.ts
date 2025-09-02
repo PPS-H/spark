@@ -21,7 +21,7 @@ export const registerUserSchema = {
     username: stringValidation("Username"),
     email: emailValidation(true),
     password: passwordValidation("Password"),
-    country: stringValidation("Country"),
+    country: stringValidation("Country",false),
     favoriteGenre: stringValidation("Favorite Genre"),
 
     musicPlatforms: Joi.array()
@@ -166,6 +166,13 @@ const resetPasswordSchema = {
   }),
 };
 
+const updatePasswordSchema = {
+  body: Joi.object({
+    oldPassword: stringValidation("Current Password", true),
+    password: passwordValidation("New Password"),
+  }),
+};
+
 export default {
   registerUserSchema,
   loginUserSchema,
@@ -174,4 +181,5 @@ export default {
   sendOTPSchema,
   changePasswordSchema,
   resetPasswordSchema,
+  updatePasswordSchema
 };
