@@ -5,7 +5,7 @@ import {
   specificStringValidation,
   stringValidation,
 } from ".";
-import { contentType } from "../utils/enums";
+import { contentType, searchType } from "../utils/enums";
 import { query } from "express";
 
 const addContentSchema = {
@@ -32,7 +32,7 @@ const getTrendingContentSchema = {
   query: Joi.object({
     page: numberValidation("Page", false),
     limit: numberValidation("Limit", false),
-    type: specificStringValidation("Type", contentType, false),
+    type: specificStringValidation("Type", searchType, false),
     search: stringValidation("Search", false),
   }),
 };

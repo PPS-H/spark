@@ -3,19 +3,24 @@ import { SUCCESS, TryCatch } from "../utils/helper";
 import User from "../model/user.model";
 import Project from "../model/projectCampaign.model";
 import Likes from "../model/likes.model";
-import { likesType, userRoles } from "../utils/enums";
+import { likesType, paymentStatus, userRoles } from "../utils/enums";
 import { getUserById } from "../services/user.services";
 import ErrorHandler from "../utils/ErrorHandler";
 import { LikeDislikeRequest } from "../../types/API/Artist/types";
 import FollowUnfollow from "../model/followUnfollow.model";
+import { getUserTotalFundsRaised } from "../services/artist.services";
+import { getUserTotalPayments } from "../services/artist.services";
+import mongoose from "mongoose";
 
 const getFeaturedArtists = TryCatch(
   async (req: Request, res: Response, next: NextFunction) => {
     const { user } = req;
-    const { page = 1, limit = 10 } = req.query as any;
+    let { page = 1, limit = 10 } = req.query as any;
     const projection =
       "_id username email role favoriteGenre artistBio profileImage socialMediaLinks";
 
+      page=Number(page)
+      limit=Number(limit)
     const [genreArtistIds, campaignArtistIds, topLikedArtistIds] =
       await Promise.all([
         User.find({
@@ -30,9 +35,19 @@ const getFeaturedArtists = TryCatch(
         }),
 
         Likes.aggregate([
-          { $group: { _id: "$artistId", likeCount: { $sum: 1 } } },
+          { 
+            $match: { 
+              artistId: { $exists: true, $ne: null } 
+            } 
+          },
+          { 
+            $group: { 
+              _id: "$artistId", 
+              likeCount: { $sum: 1 } 
+            } 
+          },
           { $sort: { likeCount: -1 } },
-          { $limit: 20 },
+          { $limit: 20 }
         ]).then((data) => data.map((d) => d._id)),
       ]);
 
@@ -47,6 +62,7 @@ const getFeaturedArtists = TryCatch(
 
     const skip = (page - 1) * limit;
 
+
     const count = await User.countDocuments({
       _id: { $in: allArtistIds },
       role: userRoles.ARTIST,
@@ -54,17 +70,125 @@ const getFeaturedArtists = TryCatch(
     });
 
     // Step 3: Fetch artist details
-    const artists = await User.find({
-      _id: { $in: allArtistIds },
-      role: userRoles.ARTIST,
-      isDeleted: false,
-    })
-      .select(projection)
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    // const artists = await User.find({
+    //   _id: { $in: allArtistIds },
+    //   role: userRoles.ARTIST,
+    //   isDeleted: false,
+    // })
+    //   .select(projection)
+    //   .skip(skip)
+    //   .limit(limit)
+    //   .lean();
 
+    const artistObjectIds = allArtistIds.map(id => new mongoose.Types.ObjectId(id));
+
+    const artists = await User.aggregate([
+      {
+        $match: {
+          _id: { $in: artistObjectIds },
+          role: userRoles.ARTIST,
+          isDeleted: false
+        }
+      },
+      {
+        $skip: skip
+      },
+      {
+        $limit: limit
+      },
+      // Lookup projects for each artist
+      {
+        $lookup: {
+          from: "projects",
+          localField: "_id",
+          foreignField: "userId",
+          as: "projects",
+          pipeline: [
+            {
+              $match: {
+                isDeleted: false
+              }
+            },
+            {
+              $project: {
+                _id: 1,
+                fundingGoal: 1
+              }
+            }
+          ]
+        }
+      },
+      // Lookup payments through projects
+      {
+        $lookup: {
+          from: "payments",
+          let: { projectIds: "$projects._id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $in: ["$projectId", "$$projectIds"] },
+                    { $eq: ["$status", paymentStatus.SUCCESS] }
+                  ]
+                }
+              }
+            },
+            {
+              $project: {
+                amount: 1,
+                expectedReturn: 1
+              }
+            }
+          ],
+          as: "payments"
+        }
+      },
+      // Calculate funding metrics with null handling
+      {
+        $addFields: {
+          fundingGoal: {
+            $ifNull: [
+              { $sum: "$projects.fundingGoal" },
+              0
+            ]
+          },
+          currentFunding: {
+            $ifNull: [
+              { $sum: "$payments.amount" },
+              0
+            ]
+          },
+          expectedReturn: {
+            $ifNull: [
+              {
+                $round: [
+                  { $avg: "$payments.expectedReturn" },
+                  2
+                ]
+              },
+              0
+            ]
+          }
+        }
+      },
+      // Clean up - remove temporary fields
+      {
+        $project: {
+          projects: 0,
+          payments: 0
+        }
+      }
+    ]);
+    
     const artistIds = artists.map((artist: any) => artist._id);
+
+    // const [fundingData,paymentData]=await Promise.all([
+    //   getUserTotalFundsRaised(artistIds),
+    //   getUserTotalPayments(artistIds),
+    // ])
+
+
 
     // Step 4: Check liked artists
     const likedArtistIds = await Likes.find({
@@ -82,7 +206,7 @@ const getFeaturedArtists = TryCatch(
       pagination: {
         page,
         limit,
-        totalPages: count / limit,
+        totalPages: Math.floor(count / limit),
       },
     });
   }

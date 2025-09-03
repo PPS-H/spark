@@ -128,7 +128,7 @@ const getTrendingContent = TryCatch(
     // Handle different types
     if (type === "top") {
       return await getTopContent(req, res, user, page, limit, dateThreshold);
-    } else if (type === "audio") {
+    } else if (type === "songs") {
       return await getSongs(req, res, user, page, limit, search);
     } else if (type === "artists") {
       return await getArtists(req, res, user, page, limit, search);
@@ -282,6 +282,7 @@ const getSongs = async (
     type: contentType.AUDIO, // Only audio content for songs
   };
 
+
   // Add search functionality
   if (search) {
     matchConditions.$or = [
@@ -292,12 +293,21 @@ const getSongs = async (
   }
 
   // Filter by user's favorite genre if no search
-  if (!search && user.favoriteGenre) {
-    matchConditions.$or.push({
-      genre: { $regex: user.favoriteGenre, $options: "i" },
-    });
-  }
+  // if (!search && user.favoriteGenre) {
+  //   if (!matchConditions.$or) {
+  //     matchConditions.$or = [];
+  //   }
+  //   matchConditions.$or.push({
+  //     genre: { $regex: user.favoriteGenre, $options: "i" },
+  //   });
+  // }
 
+
+  const dd=await Content.find({
+    ...matchConditions
+  })
+  console.log(dd,"=======>dd")
+  
   const songsPipeline: any = [
     { $match: matchConditions },
 

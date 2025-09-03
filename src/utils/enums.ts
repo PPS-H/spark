@@ -38,6 +38,12 @@ export const contentType = {
   IMAGE: "image",
 };
 
+export const searchType = {
+  SONGS: "songs",
+  ARTISTS: "artists",
+  TOP: "top",
+};
+
 export const projectDurationType = {
   "30_DAYS": "30_days",
   "45_DAYS": "45_days",

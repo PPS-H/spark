@@ -39,6 +39,12 @@ const spotifyCallback = TryCatch(
       tokenData.access_token
     );
 
+    const getUserFollowers=await spotifyService.getUserFollowers(
+      tokenData.access_token
+    );
+
+    console.log(getUserFollowers,"=======>getUserFollowers")
+
     // Store tokens and data
     await StreamingAccount.findOneAndUpdate(
       { userId: tokenData.userId, platform: "spotify" },
