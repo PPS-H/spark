@@ -15,6 +15,7 @@ import Likes from "../model/likes.model";
 import User from "../model/user.model";
 import ErrorHandler from "../utils/ErrorHandler";
 import SearchHistory from "../model/searchHistory.model";
+import FollowUnfollow from "../model/followUnfollow.model";
 
 const addContent = TryCatch(
   async (
@@ -112,7 +113,7 @@ const getTrendingContent = TryCatch(
     req: Request<{}, {}, {}, GetTrendingContentRequest>,
     res: Response,
     next: NextFunction
-  ) =>  {
+  ) => {
     const { user } = req;
     const {
       page = 1,
@@ -154,13 +155,13 @@ const getTopContent = async (
 ) => {
   const contentMatchConditions: any = {
     isDeleted: false,
-    type: { $in: [contentType.VIDEO, contentType.AUDIO, contentType.IMAGE] },
+    type: { $in: [contentType.VIDEO, contentType.IMAGE] },
   };
 
+  // ---------------- Trending pipeline ----------------
   const trendingContentPipeline: any = [
     { $match: contentMatchConditions },
 
-    // Lookup likes for each content
     {
       $lookup: {
         from: "likes",
@@ -187,20 +188,19 @@ const getTopContent = async (
       },
     },
 
-    // Add engagement metrics
     {
       $addFields: {
         likeCount: { $size: "$likes" },
         weeklyTrendingScore: {
           $multiply: [
-            { $size: "$likes" }, // Like count
+            { $size: "$likes" },
             {
               $subtract: [
                 2,
                 {
                   $divide: [
                     { $subtract: [new Date(), "$createdAt"] },
-                    604800000, // Week in milliseconds
+                    604800000, // 1 week
                   ],
                 },
               ],
@@ -210,13 +210,9 @@ const getTopContent = async (
       },
     },
 
-    // Filter content with engagement
-    { $match: { likeCount: { $gte: 1 } } },
-
-    // Sort by weekly trending score
+    // { $match: { likeCount: { $gte: 1 } } },
     { $sort: { weeklyTrendingScore: -1, likeCount: -1, createdAt: -1 } },
 
-    // Lookup user details
     {
       $lookup: {
         from: "users",
@@ -239,7 +235,7 @@ const getTopContent = async (
     },
 
     { $unwind: "$user" },
-    { $match: { "user.isDeleted": { $ne: true } } }, 
+    { $match: { "user.isDeleted": { $ne: true } } },
     { $skip: (Number(page) - 1) * Number(limit) },
     { $limit: Number(limit) },
 
@@ -259,12 +255,63 @@ const getTopContent = async (
     },
   ];
 
-  const topContent = await Content.aggregate(trendingContentPipeline);
+  let topContent = await Content.aggregate(trendingContentPipeline);
+
+  // ---------------- Fallback if no trending ----------------
+  // if (!topContent.length) {
+  //   const fallbackPipeline: any = [
+  //     { $match: contentMatchConditions },
+  //     { $sort: { createdAt: -1 } },
+  //     { $skip: (Number(page) - 1) * Number(limit) },
+  //     { $limit: Number(limit) },
+  //     {
+  //       $lookup: {
+  //         from: "users",
+  //         localField: "userId",
+  //         foreignField: "_id",
+  //         as: "user",
+  //         pipeline: [
+  //           {
+  //             $project: {
+  //               _id: 1,
+  //               username: 1,
+  //               email: 1,
+  //               role: 1,
+  //               artistBio: 1,
+  //               socialMediaLinks: 1,
+  //               country:1,
+  //               favoriteGenre:1
+  //             },
+  //           },
+  //         ],
+  //       },
+  //     },
+  //     { $unwind: "$user" },
+  //     { $match: { "user.isDeleted": { $ne: true } } },
+  //     {
+  //       $project: {
+  //         _id: 1,
+  //         title: 1,
+  //         file: 1,
+  //         genre: 1,
+  //         description: 1,
+  //         type: 1,
+  //         createdAt: 1,
+  //         likeCount: { $literal: 0 }, // keep same structure
+  //         weeklyTrendingScore: { $literal: 0 }, // keep same structure
+  //         user: 1,
+  //       },
+  //     },
+  //   ];
+
+  //   topContent = await Content.aggregate(fallbackPipeline);
+  // }
+
   const contentWithIsLiked = await addIsLikedField(topContent, user._id);
 
   return SUCCESS(res, 200, "Top trending content fetched successfully", {
     data: contentWithIsLiked,
-    type: "top",
+    type: "top", // always "top" so response model stays identical
   });
 };
 
@@ -303,11 +350,11 @@ const getSongs = async (
   // }
 
 
-  const dd=await Content.find({
+  const dd = await Content.find({
     ...matchConditions
   })
-  console.log(dd,"=======>dd")
-  
+  console.log(dd, "=======>dd")
+
   const songsPipeline: any = [
     { $match: matchConditions },
 
@@ -327,9 +374,42 @@ const getSongs = async (
               role: 1,
               artistBio: 1,
               socialMediaLinks: 1,
+              country: 1,
+              favoriteGenre: 1
             },
           },
         ],
+      },
+    },
+
+    {
+      $lookup: {
+        from: "likes",
+        let: { contentId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$contentId", "$$contentId"] },
+                  {
+                    $in: [
+                      "$type",
+                      [likesType.AUDIO],
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        as: "likes",
+      },
+    },
+
+    {
+      $addFields: {
+        likeCount: { $size: "$likes" },
       },
     },
 
@@ -351,6 +431,7 @@ const getSongs = async (
         type: 1,
         createdAt: 1,
         user: 1,
+        likeCount: 1,
       },
     },
   ];
@@ -377,8 +458,8 @@ const getArtists = async (
 
   // If no search term, show recent searches
   if (!search || search.trim() === "") {
-    const recentSearches = await getRecentArtistSearches(user._id);
-    response.recentSearches = recentSearches;
+    // const recentSearches = await getRecentArtistSearches(user._id);
+    // response.recentSearches = recentSearches;
 
     // Also show some popular artists
     const popularArtists = await User.find({
@@ -386,17 +467,17 @@ const getArtists = async (
       isDeleted: false,
       _id: { $ne: user._id },
     })
-      .select("_id username email role artistBio socialMediaLinks")
+      .select("_id username email role artistBio socialMediaLinks country favoriteGenre")
       .limit(Number(limit))
       .lean();
 
-    const artistsWithIsLiked = await addArtistIsLikedField(
+    const artistsWithIsLiked = await addArtistIsLikedAndFollowedField(
       popularArtists,
       user._id
     );
     response.artists = artistsWithIsLiked;
 
-    
+
     return SUCCESS(res, 200, "Recent searches and popular artists fetched", {
       data: response,
       type: "artists",
@@ -422,14 +503,15 @@ const getArtists = async (
   // Save search term for recent searches
   await saveArtistSearch(user._id, search);
 
-  const artistsWithIsLiked = await addArtistIsLikedField(
+  const finalData = await addArtistIsLikedAndFollowedField(
     searchResults,
     user._id
   );
 
+
   return SUCCESS(res, 200, "Artist search results fetched", {
     data: {
-      artists: artistsWithIsLiked,
+      artists: finalData,
       searchTerm: search,
     },
     type: "artists",
@@ -452,7 +534,7 @@ const addIsLikedField = async (content: any[], userId: string) => {
 };
 
 // Helper function to add isLiked field for artists
-const addArtistIsLikedField = async (artists: any[], userId: string) => {
+const addArtistIsLikedAndFollowedField = async (artists: any[], userId: string) => {
   const artistIds = artists.map((artist) => artist._id);
   const userLikedArtists = await Likes.find({
     likedBy: userId,
@@ -460,11 +542,18 @@ const addArtistIsLikedField = async (artists: any[], userId: string) => {
     type: likesType.ARTIST,
   }).distinct("artistId");
 
+  const userFollowedArtist = await FollowUnfollow.find({
+    followedBy: userId,
+    artistId: { $in: artistIds },
+  }).distinct("artistId");
+
   return artists.map((artist: any) => ({
     ...artist,
     isLiked: userLikedArtists.map(String).includes(artist._id.toString()),
+    isFollowed: userFollowedArtist.map(String).includes(artist._id.toString()),
   }));
 };
+
 
 // Helper functions for recent searches (you'll need to create a search history schema)
 const getRecentArtistSearches = async (userId: string) => {
@@ -503,12 +592,34 @@ const searchContent = TryCatch(
       User.find({
         username: { $regex: search, $options: "i" },
       }),
-  0  ]);
+    ]);
 
     return SUCCESS(res, 200, "Content searched successfully", {
       data: {
         content,
         artist,
+      },
+    });
+  }
+);
+
+
+const getUserContentSearchHisory = TryCatch(
+  async (
+    req: Request<{}, {}, {}, SearchContentRequest>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    const { search } = req.query;
+
+    const history = await SearchHistory.find({
+      userId: req.userId,
+      searchTerm: { $regex: search, $options: "i" }
+    }).sort({ createdAt: -1 });
+
+    return SUCCESS(res, 200, "Content searched successfully", {
+      data: {
+        history
       },
     });
   }
@@ -520,4 +631,5 @@ export default {
   likeDislikeContent,
   getTrendingContent,
   searchContent,
+  getUserContentSearchHisory
 };

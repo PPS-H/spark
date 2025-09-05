@@ -34,10 +34,10 @@ contentRoutes.get(
 );
 
 contentRoutes.get(
-  "/searchContent",
+  "/getUserContentSearchHisory",
   authenticationMiddleware,
   validate(contentSchema.searchContentSchema),
-  contentController.searchContent
+  contentController.getUserContentSearchHisory
 );
 
 contentRoutes.put(
