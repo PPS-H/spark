@@ -314,10 +314,24 @@ const createProject = TryCatch(
 
 const getAllProjects = TryCatch(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { userId } = req;
-    const projects = await Project.find({ userId });
+    const { userId ,user} = req;
+    let { page = 1, limit = 10 } = req.query;
+    page = Number(page);
+    limit = Number(limit);
+
+    const query:any={};
+    if(user.role === "artist"){
+      query.userId = userId;
+    }
+
+    const projects = await Project.find(query).select("-automaticROI -verificationData").skip((page - 1) * limit).limit(limit);
     return SUCCESS(res, 200, "Projects fetched  successfully", {
       data: { projects },
+      pagination: {
+        page,
+        limit,
+        totalPages: Math.ceil(projects.length / limit),
+      },
     });
   }
 );
