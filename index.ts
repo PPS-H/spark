@@ -4,10 +4,14 @@ import morgan from "morgan";
 import { connectToDB } from "./src/utils/helper";
 import { errorMiddleware } from "./src/middleware/error.middleware";
 import router from "./src/router";
+import { stripeWebhook } from "./src/webhook";
 import path from "path";
 import cors from "cors";  
 
 const app = express();
+
+// Stripe webhook endpoint (must be before express.json() middleware)
+app.post("/api/v1/webhook/stripe", express.raw({ type: "application/json" }), stripeWebhook);
 
 app.use(express.json());
 app.use(cors({

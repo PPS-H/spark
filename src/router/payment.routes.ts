@@ -48,4 +48,10 @@ paymentRoutes.delete(
   paymentController.deleteCustomerCard
 );
 
+paymentRoutes.post(
+  "/createCheckoutSession",
+  authenticationMiddleware,
+  paymentController.createCheckoutSession
+);
+
 export default paymentRoutes;

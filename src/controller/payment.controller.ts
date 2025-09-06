@@ -425,6 +425,69 @@ const deleteCustomerCard = TryCatch(async (req, res, next) => {
   });
 });
 
+const createCheckoutSession = TryCatch(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { projectId, amount, currency = "usd" } = req.body;
+    const { userId } = req;
+
+    if (!projectId || !amount) {
+      return next(new ErrorHandler("Project ID and amount are required", 400));
+    }
+
+    if (amount < 100) {
+      return next(new ErrorHandler("Minimum investment amount is $100", 400));
+    }
+
+    // Get project details
+    const project = await getProjectById(projectId);
+    if (!project) {
+      return next(new ErrorHandler("Project not found", 404));
+    }
+
+    // Get user details
+    const user = await getUserById(userId);
+    if (!user) {
+      return next(new ErrorHandler("User not found", 404));
+    }
+
+    // Create Stripe checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: currency.toLowerCase(),
+            product_data: {
+              name: `Investment in ${project.title}`,
+              description: `Investment in ${project.songTitle} by ${project.artistName}`,
+            },
+            unit_amount: Math.round(amount * 100), // Convert to cents
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: `${process.env.FRONTEND_URL || "http://localhost:5173"}/invest/${projectId}?payment=success`,
+      cancel_url: `${process.env.FRONTEND_URL || "http://localhost:5173"}/invest/${projectId}?payment=cancelled`,
+      customer_email: user.email,
+      metadata: {
+        projectId: projectId,
+        userId: userId,
+        investmentAmount: amount.toString(),
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Checkout session created successfully",
+      data: {
+        sessionId: session.id,
+        url: session.url,
+      },
+    });
+  }
+);
+
 export default {
   createStripeAccount,
   accountRefresh,
@@ -433,4 +496,5 @@ export default {
   getPaymentMethods,
   addCustomerCard,
   deleteCustomerCard,
+  createCheckoutSession,
 };

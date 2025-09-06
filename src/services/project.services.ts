@@ -49,7 +49,7 @@ export const getHistoricalPerformance = async (
               (sum: number, track: any) => sum + track.popularity * 100,
               0
             );
-
+            
           const spotifyRevenue =
             estimatedMonthlyStreams * getSpotifyPayoutRate("US"); // Use user's country
 

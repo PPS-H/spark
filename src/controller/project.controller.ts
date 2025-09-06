@@ -8,7 +8,7 @@ import Project from "../model/projectCampaign.model";
 import { SUCCESS, TryCatch } from "../utils/helper";
 import ErrorHandler from "../utils/ErrorHandler";
 import User from "../model/user.model";
-import { projectStatus } from "../utils/enums";
+import { likesType, projectStatus } from "../utils/enums";
 import MetadataVerificationService from "../services/metadataVerificationService";
 import {
   determineRiskLevel,
@@ -17,6 +17,8 @@ import {
 import AutomaticROICalculationService from "../services/automaticRoiCalcService";
 import Investment from "../model/investment.model";
 import mongoose from "mongoose";
+import Likes from "../model/likes.model";
+import Payment from "../model/payment.model";
 
 const createProject = TryCatch(
   async (
@@ -314,23 +316,35 @@ const createProject = TryCatch(
 
 const getAllProjects = TryCatch(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { userId ,user} = req;
+    const { userId, user } = req;
     let { page = 1, limit = 10 } = req.query;
     page = Number(page);
     limit = Number(limit);
 
-    const query:any={};
-    if(user.role === "artist"){
+    const query: any = {};
+    if (user.role === "artist") {
       query.userId = userId;
+    }else{
+      const investedProjects = await Payment.distinct("projectId", {
+        userId: new mongoose.Types.ObjectId(userId),
+      });
+       query._id =  { $nin: investedProjects };
     }
 
-    const projects = await Project.find(query).select("-automaticROI -verificationData").skip((page - 1) * limit).limit(limit);
+    const [projects, totalCount] = await Promise.all([
+      Project.find(query)
+        .select("-automaticROI -verificationData")
+        .skip((page - 1) * limit)
+        .limit(limit),
+      Project.countDocuments(query),
+    ]);
+
     return SUCCESS(res, 200, "Projects fetched  successfully", {
       data: { projects },
       pagination: {
         page,
         limit,
-        totalPages: Math.ceil(projects.length / limit),
+        totalPages: Math.ceil(totalCount / limit),
       },
     });
   }
@@ -395,23 +409,23 @@ const getProjectROIData = TryCatch(
     next: NextFunction
   ) => {
     const { projectId } = req.params;
+    const { userId } = req;
 
     const project = await Project.findOne({
       _id: projectId,
       isDeleted: false,
       isActive: true,
-    }).populate("userId", "username email artistBio");
+    }).populate("userId", "username email artistBio aboutTxt");
 
     if (!project) {
       return next(new ErrorHandler("Project not found", 404));
     }
 
     // Get current funding statistics
-    const fundingStats = await Investment.aggregate([
+    const fundingStats = await Payment.aggregate([
       {
         $match: {
           projectId: new mongoose.Types.ObjectId(projectId),
-          isDeleted: false,
         },
       },
       {
@@ -419,9 +433,19 @@ const getProjectROIData = TryCatch(
           _id: null,
           totalRaised: { $sum: "$amount" },
           totalInvestors: { $sum: 1 },
+          investors: { $addToSet: "$userId" }, // collect unique investors
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          totalRaised: 1,
+          totalInvestors: 1,
+          userInvested: { $in: [new mongoose.Types.ObjectId(userId), "$investors"] }, // check if userId is in investors
         },
       },
     ]);
+
 
     const stats = fundingStats[0] || { totalRaised: 0, totalInvestors: 0 };
     const fundingGoalAmount = parseFloat(project.fundingGoal);
@@ -433,8 +457,7 @@ const getProjectROIData = TryCatch(
     );
     const monthlyListeners =
       historicalData?.platforms?.spotify?.followers ||
-      historicalData?.platforms?.youtube?.subscribers ||
-      Math.round(Math.random() * 100000);
+      historicalData?.platforms?.youtube?.subscribers
 
     // Determine risk level based on ROI and confidence
     let riskLevel = "Medium";
@@ -448,6 +471,12 @@ const getProjectROIData = TryCatch(
       else riskLevel = "High";
     }
 
+    const isLiked = await Likes.findOne({
+      likedBy: userId,
+      artistId: project.userId._id,
+      type: likesType.ARTIST,
+    })
+
     return SUCCESS(res, 200, "Project ROI data retrieved successfully", {
       data: {
         project: {
@@ -455,7 +484,7 @@ const getProjectROIData = TryCatch(
           title: project.title,
           songTitle: project.songTitle,
           artistName: project.artistName,
-          artist: project.userId,
+          artist: { ...project.userId.toObject(), isLiked: isLiked ? true : false, isAlreadyInvested: stats.userInvested ? true : false },
         },
 
         // Artist Performance Data (for your interface)
@@ -492,6 +521,46 @@ const getProjectROIData = TryCatch(
     });
   }
 );
+
+
+const getInvestedProjects = TryCatch(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = req;
+    let { page = 1, limit = 10 } = req.query;
+    page = Number(page);
+    limit = Number(limit);
+
+    // Step 1: Get all projectIds the user has invested in
+    const investedProjects = await Payment.distinct("projectId", {
+      userId: new mongoose.Types.ObjectId(userId),
+    });
+
+    // Step 2: Build query (only projects user invested in)
+    const query: any = {
+      _id: { $in: investedProjects },
+    };
+
+    // Step 3: Fetch projects + total count in parallel
+    const [projects, totalCount] = await Promise.all([
+      Project.find(query)
+        .select("-automaticROI -verificationData")
+        .skip((page - 1) * limit)
+        .limit(limit),
+      Project.countDocuments(query),
+    ]);
+
+    // Step 4: Return response
+    return SUCCESS(res, 200, "Invested projects fetched successfully", {
+      data: { projects },
+      pagination: {
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    });
+  }
+);
+
 
 // const calculateInvestorROI = TryCatch(
 //   async (
@@ -635,4 +704,5 @@ export default {
   getAllProjects,
   updateProject,
   getProjectROIData,
+  getInvestedProjects
 };

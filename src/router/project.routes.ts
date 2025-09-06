@@ -27,6 +27,12 @@ projectRoutes.put(
 );
 
 projectRoutes.get(
+  "/getInvestedProjects",
+  authenticationMiddleware,
+  projectController.getInvestedProjects
+);
+
+projectRoutes.get(
   "/:projectId",
   authenticationMiddleware,
   validate(projectSchema.updateProjectSchema),
