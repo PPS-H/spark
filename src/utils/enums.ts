@@ -45,10 +45,10 @@ export const searchType = {
 };
 
 export const projectDurationType = {
-  "30_DAYS": "30_days",
-  "45_DAYS": "45_days",
-  "60_DAYS": "60_days",
-  "90_DAYS": "90_days",
+  "30_DAYS": "30",
+  "45_DAYS": "45",
+  "60_DAYS": "60",
+  "90_DAYS": "90",
 };
 
 export const likesType = {

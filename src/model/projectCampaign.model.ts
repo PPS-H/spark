@@ -25,8 +25,8 @@ const projectSchema = new Schema<any>(
     upcCode: { type: String }, // Optional for singles
 
     // Platform-specific fields
-    spotifyTrackLink: { type: String, required: true },
-    spotifyTrackId: { type: String, required: true },
+    spotifyTrackLink: { type: String, default: null },
+    spotifyTrackId: { type: String, default: null },
     youtubeMusicLink: { type: String }, // Optional
     youtubeVideoId: { type: String }, // Optional
     deezerTrackLink: { type: String }, // Optional
@@ -88,6 +88,7 @@ const projectSchema = new Schema<any>(
     // DistroKid connection
     distroKidReleaseId: { type: String },
     distroKidConnected: { type: Boolean, default: false },
+    distroKidFile: { type: String },
 
     isDeleted: { type: Boolean, default: false },
   },

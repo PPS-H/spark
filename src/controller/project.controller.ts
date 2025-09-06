@@ -17,6 +17,7 @@ import {
 import AutomaticROICalculationService from "../services/automaticRoiCalcService";
 import Investment from "../model/investment.model";
 import mongoose from "mongoose";
+import { getFiles } from "../utils/helper";
 
 const createProject = TryCatch(
   async (
@@ -46,7 +47,14 @@ const createProject = TryCatch(
       expectedReleaseDate,
       fundingDeadline,
     } = req.body;
+    
+    // console.log("req.body::::::", req.body);
+    // return;
 
+    const files = getFiles(req, ["file"]);
+
+    const distroKidFile = files.file[0];
+  
     // Get artist info
     const artist = await User.findById(userId);
     if (!artist) {
@@ -90,34 +98,57 @@ const createProject = TryCatch(
       );
     }
 
-    // **MULTI-PLATFORM METADATA VERIFICATION**
+    // **MULTI-PLATFORM METADATA VERIFICATION (Optional)**
     const verificationService = new MetadataVerificationService();
+    let verificationResults = null;
 
-    console.log("Starting multi-platform metadata verification...");
-    const verificationResults = await verificationService.verifyProjectMetadata(
-      {
-        songTitle,
-        artistName,
-        isrcCode,
-        spotifyTrackLink,
-        spotifyTrackId,
-        youtubeMusicLink,
-        youtubeVideoId,
-        deezerTrackLink,
-        deezerTrackId,
-      }
-    );
+    // Only run verification if at least one platform is provided
+    const hasSpotify = spotifyTrackLink || spotifyTrackId;
+    const hasYouTube = youtubeMusicLink || youtubeVideoId;
+    const hasDeezer = deezerTrackLink || deezerTrackId;
 
-    // Check if verification passed
-    if (!verificationResults.overall.isVerified) {
-      const errorMessage =
-        verificationResults.overall.errors.length > 0
-          ? verificationResults.overall.errors.join(", ")
-          : "Multi-platform metadata verification failed";
-
-      return next(
-        new ErrorHandler(`Project verification failed: ${errorMessage}`, 400)
+    if (hasSpotify || hasYouTube || hasDeezer) {
+      console.log("Starting multi-platform metadata verification...");
+      verificationResults = await verificationService.verifyProjectMetadata(
+        {
+          songTitle,
+          artistName,
+          isrcCode,
+          spotifyTrackLink: spotifyTrackLink || null,
+          spotifyTrackId: spotifyTrackId || null,
+          youtubeMusicLink: youtubeMusicLink || null,
+          youtubeVideoId: youtubeVideoId || null,
+          deezerTrackLink: deezerTrackLink || null,
+          deezerTrackId: deezerTrackId || null,
+        }
       );
+
+      // Only fail if verification was attempted and failed
+      if (verificationResults && !verificationResults.overall.isVerified) {
+        const errorMessage =
+          verificationResults.overall.errors.length > 0
+            ? verificationResults.overall.errors.join(", ")
+            : "Multi-platform metadata verification failed";
+
+        return next(
+          new ErrorHandler(`Project verification failed: ${errorMessage}`, 400)
+        );
+      }
+    } else {
+      // No platforms provided, create basic verification result
+      verificationResults = {
+        spotify: null,
+        youtube: null,
+        deezer: null,
+        overall: {
+          isVerified: true,
+          confidence: 0,
+          errors: [],
+          warnings: ['No platform verification performed'],
+          platformsVerified: 0,
+          totalPlatforms: 0
+        }
+      };
     }
 
     // **GET HISTORICAL PERFORMANCE DATA**
@@ -152,13 +183,13 @@ const createProject = TryCatch(
       // Continue without ROI if calculation fails
     }
 
-    // Extract verified IDs
+    // Extract verified IDs (handle case where verificationResults might be null)
     const verifiedSpotifyTrackId =
-      verificationResults.spotify?.trackData?.id || spotifyTrackId;
+      verificationResults?.spotify?.trackData?.id || spotifyTrackId || null;
     const verifiedYouTubeVideoId =
-      verificationResults.youtube?.trackData?.id || youtubeVideoId;
+      verificationResults?.youtube?.trackData?.id || youtubeVideoId || null;
     const verifiedDeezerTrackId =
-      verificationResults.deezer?.trackData?.id || deezerTrackId;
+      verificationResults?.deezer?.trackData?.id || deezerTrackId || null;
 
     try {
       // **Create project with automatic ROI data**
@@ -172,7 +203,7 @@ const createProject = TryCatch(
         artistName,
         isrcCode,
         upcCode,
-        spotifyTrackLink,
+        spotifyTrackLink: spotifyTrackLink ? spotifyTrackLink : null,
         spotifyTrackId: verifiedSpotifyTrackId,
         youtubeMusicLink,
         youtubeVideoId: verifiedYouTubeVideoId,
@@ -190,12 +221,13 @@ const createProject = TryCatch(
           : undefined,
 
         // Verification data
-        isVerified: true,
-        verificationStatus: "verified",
+        isVerified: verificationResults ? verificationResults.overall.isVerified : true,
+        verificationStatus: verificationResults ? "verified" : "unverified",
         verificationData: verificationResults,
-        verifiedAt: new Date(),
+        verifiedAt: verificationResults ? new Date() : null,
         status: projectStatus.ACTIVE,
         isActive: true,
+        distrokidFile: distroKidFile,
       };
 
       // **Add automatic ROI data if calculated**
@@ -234,18 +266,27 @@ const createProject = TryCatch(
         canAcceptInvestments: true,
 
         // Verification summary
-        verificationSummary: {
+        verificationSummary: verificationResults ? {
           confidence: verificationResults.overall.confidence,
           platformsVerified: verificationResults.overall.platformsVerified,
           totalPlatforms: verificationResults.overall.totalPlatforms,
           warnings: verificationResults.overall.warnings,
+        } : {
+          confidence: 0,
+          platformsVerified: 0,
+          totalPlatforms: 0,
+          warnings: ['No platform verification performed'],
         },
 
         // Platform data
-        platformData: {
-          spotify: verificationResults.spotify?.trackData,
-          youtube: verificationResults.youtube?.trackData,
-          deezer: verificationResults.deezer?.trackData,
+        platformData: verificationResults ? {
+          spotify: verificationResults.spotify?.trackData || null,
+          youtube: verificationResults.youtube?.trackData || null,
+          deezer: verificationResults.deezer?.trackData || null,
+        } : {
+          spotify: null,
+          youtube: null,
+          deezer: null,
         },
       };
 
