@@ -28,39 +28,41 @@ class MetadataVerificationService {
       let totalPlatforms = 1; // Spotify is required
       if (projectData.youtubeVideoId || projectData.youtubeMusicLink) totalPlatforms++;
       if (projectData.deezerTrackId || projectData.deezerTrackLink) totalPlatforms++;
-      
+
       verificationResults.overall.totalPlatforms = totalPlatforms;
 
       // **SPOTIFY VERIFICATION (Required)**
       const spotifyTrackId = projectData.spotifyTrackId || this.extractSpotifyTrackId(projectData.spotifyTrackLink);
-      
-      if (!spotifyTrackId) {
-        verificationResults.overall.errors.push('Invalid Spotify track link or missing track ID');
-        return verificationResults;
+
+      // if (!spotifyTrackId) {
+      //   verificationResults.overall.errors.push('Invalid Spotify track link or missing track ID');
+      //   return verificationResults;
+      // }
+
+
+      if (projectData.spotifyTrackId) {
+        verificationResults.spotify = await this.verifySpotifyTrack(
+          spotifyTrackId,
+          projectData.songTitle,
+          projectData.artistName,
+          projectData.isrcCode
+        );
+
+        if (verificationResults.spotify?.found) {
+          verificationResults.overall.platformsVerified++;
+        }
       }
-
-      verificationResults.spotify = await this.verifySpotifyTrack(
-        spotifyTrackId,
-        projectData.songTitle,
-        projectData.artistName,
-        projectData.isrcCode
-      );
-
-      if (verificationResults.spotify?.found) {
-        verificationResults.overall.platformsVerified++;
-      }
-
       // **YOUTUBE VERIFICATION (Optional)**
       if (projectData.youtubeVideoId || projectData.youtubeMusicLink) {
         const youtubeVideoId = projectData.youtubeVideoId || this.extractYouTubeVideoId(projectData.youtubeMusicLink);
-        
+
         if (youtubeVideoId) {
           verificationResults.youtube = await this.verifyYouTubeTrack(
             youtubeVideoId,
             projectData.songTitle,
             projectData.artistName
           );
-          
+
           if (verificationResults.youtube?.found) {
             verificationResults.overall.platformsVerified++;
           }
@@ -72,7 +74,7 @@ class MetadataVerificationService {
       // **DEEZER VERIFICATION (Optional)**
       if (projectData.deezerTrackId || projectData.deezerTrackLink) {
         const deezerTrackId = projectData.deezerTrackId || this.extractDeezerTrackId(projectData.deezerTrackLink);
-        
+
         if (deezerTrackId) {
           verificationResults.deezer = await this.verifyDeezerTrack(
             deezerTrackId,
@@ -80,7 +82,7 @@ class MetadataVerificationService {
             projectData.artistName,
             projectData.isrcCode
           );
-          
+
           if (verificationResults.deezer?.found) {
             verificationResults.overall.platformsVerified++;
           }
@@ -91,12 +93,12 @@ class MetadataVerificationService {
 
       // **CALCULATE OVERALL CONFIDENCE**
       verificationResults.overall.confidence = this.calculateOverallConfidence(verificationResults);
-      
+
       // **DETERMINE VERIFICATION STATUS**
       const minRequiredConfidence = 85;
-      const spotifyPassed = verificationResults.spotify?.found && 
+      const spotifyPassed = verificationResults.spotify?.found &&
         (verificationResults.spotify.titleMatch + verificationResults.spotify.artistMatch) / 2 >= 80;
-      
+
       if (spotifyPassed && verificationResults.overall.confidence >= minRequiredConfidence) {
         verificationResults.overall.isVerified = true;
       } else if (verificationResults.overall.confidence >= 70) {
@@ -121,13 +123,13 @@ class MetadataVerificationService {
   private async verifySpotifyTrack(trackId: string, expectedTitle: string, expectedArtist: string, expectedISRC?: string): Promise<any> {
     try {
       const token = await this.getSpotifyClientCredentialsToken();
-      
+
       const response = await axios.get(`https://api.spotify.com/v1/tracks/${trackId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       const track = response.data;
-      
+
       const titleMatch = this.calculateSimilarity(track.name, expectedTitle);
       const artistMatch = this.calculateSimilarity(track.artists[0].name, expectedArtist);
       const isrcMatch = expectedISRC ? track.external_ids?.isrc === expectedISRC : false;
@@ -173,7 +175,7 @@ class MetadataVerificationService {
 
       const video = videos[0];
       const titleMatch = this.calculateSimilarity(video.snippet.title, expectedTitle);
-      
+
       // Check if artist name appears in title or channel name
       const titleArtistMatch = this.calculateSimilarity(video.snippet.title, expectedArtist);
       const channelArtistMatch = this.calculateSimilarity(video.snippet.channelTitle, expectedArtist);
@@ -355,7 +357,7 @@ class MetadataVerificationService {
   // **UTILITY FUNCTIONS** (Same as before)
   private async getSpotifyClientCredentialsToken(): Promise<string> {
     try {
-      const response = await axios.post('https://accounts.spotify.com/api/token', 
+      const response = await axios.post('https://accounts.spotify.com/api/token',
         'grant_type=client_credentials',
         {
           headers: {
@@ -374,32 +376,32 @@ class MetadataVerificationService {
 
   private calculateSimilarity(str1: string, str2: string): number {
     if (!str1 || !str2) return 0;
-    
+
     const s1 = str1.toLowerCase().trim();
     const s2 = str2.toLowerCase().trim();
-    
+
     if (s1 === s2) return 100;
-    
+
     const longer = s1.length > s2.length ? s1 : s2;
     const shorter = s1.length > s2.length ? s2 : s1;
-    
+
     if (longer.length === 0) return 100;
-    
+
     const distance = this.levenshteinDistance(longer, shorter);
     return Math.round(((longer.length - distance) / longer.length) * 100);
   }
 
   private levenshteinDistance(str1: string, str2: string): number {
     const matrix = [];
-    
+
     for (let i = 0; i <= str2.length; i++) {
       matrix[i] = [i];
     }
-    
+
     for (let j = 0; j <= str1.length; j++) {
       matrix[0][j] = j;
     }
-    
+
     for (let i = 1; i <= str2.length; i++) {
       for (let j = 1; j <= str1.length; j++) {
         if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
@@ -413,7 +415,7 @@ class MetadataVerificationService {
         }
       }
     }
-    
+
     return matrix[str2.length][str1.length];
   }
 }

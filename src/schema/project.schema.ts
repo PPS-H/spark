@@ -34,17 +34,14 @@ const createProjectSchema = {
     // Spotify (Required)
     spotifyTrackLink: Joi.string()
       .uri()
-      .required()
+      .optional()
       .messages({
-        'string.uri': 'Spotify track link must be a valid URL',
-        'any.required': 'Spotify track link is required'
-      }),
+        'string.uri': 'Spotify track link must be a valid URL' }),
     spotifyTrackId: Joi.string()
       .pattern(/^[a-zA-Z0-9]{22}$/)
-      .required()
+      .optional()
       .messages({
-        'string.pattern.base': 'Spotify track ID must be exactly 22 characters',
-        'any.required': 'Spotify track ID is required'
+        'string.pattern.base': 'Spotify track ID must be exactly 22 characters'
       }),
     
     // YouTube Music (Optional)
