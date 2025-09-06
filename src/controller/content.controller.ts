@@ -126,9 +126,14 @@ const getTrendingContent = TryCatch(
       Date.now() - Number(7) * 24 * 60 * 60 * 1000
     );
 
+    if (search && search.trim() !== "") {
+      // Save search term for recent searches
+      await saveArtistSearch(user._id, search);
+    }
+
     // Handle different types
     if (type === "top") {
-      return await getTopContent(req, res, user, page, limit, dateThreshold);
+      return await getTopContent(req, res, user, page, limit, dateThreshold, search);
     } else if (type === "songs") {
       return await getSongs(req, res, user, page, limit, search);
     } else if (type === "artists") {
@@ -151,12 +156,21 @@ const getTopContent = async (
   user: any,
   page: number,
   limit: number,
-  dateThreshold: Date
+  dateThreshold: Date,
+  search: string
 ) => {
   const contentMatchConditions: any = {
     isDeleted: false,
     type: { $in: [contentType.VIDEO, contentType.IMAGE] },
   };
+
+  if (search) {
+    contentMatchConditions.$or = [
+      { title: { $regex: search, $options: "i" } },
+      { genre: { $regex: search, $options: "i" } },
+      { description: { $regex: search, $options: "i" } },
+    ];
+  }
 
   // ---------------- Trending pipeline ----------------
   const trendingContentPipeline: any = [
@@ -500,8 +514,6 @@ const getArtists = async (
     .limit(Number(limit))
     .lean();
 
-  // Save search term for recent searches
-  await saveArtistSearch(user._id, search);
 
   const finalData = await addArtistIsLikedAndFollowedField(
     searchResults,
@@ -616,7 +628,7 @@ const getUserContentSearchHisory = TryCatch(
       userId: req.userId,
       searchTerm: { $regex: search, $options: "i" }
     }).sort({ createdAt: -1 });
-
+    console.log(history, "=======>history")
     return SUCCESS(res, 200, "Content searched successfully", {
       data: {
         history
