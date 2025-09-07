@@ -481,7 +481,7 @@ const getArtists = async (
       isDeleted: false,
       _id: { $ne: user._id },
     })
-      .select("_id username email role artistBio socialMediaLinks country favoriteGenre")
+      .select("_id username email role artistBio socialMediaLinks country favoriteGenre profilePicture")
       .limit(Number(limit))
       .lean();
 
@@ -508,7 +508,7 @@ const getArtists = async (
       { username: { $regex: search, $options: "i" } }, // Contains search term
     ],
   })
-    .select("_id username email role artistBio socialMediaLinks")
+    .select("_id username email role artistBio socialMediaLinks profilePicture")
     .sort({ username: 1 }) // Alphabetical order
     .skip((Number(page) - 1) * Number(limit))
     .limit(Number(limit))

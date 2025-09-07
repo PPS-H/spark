@@ -27,6 +27,9 @@ import {
 import { userRoles } from "../utils/enums";
 import { sendEmail } from "../utils/sendEmail";
 import Likes from "../model/likes.model";
+import Project from "../model/projectCampaign.model";
+import Payment from "../model/payment.model";
+import FollowUnfollow from "../model/followUnfollow.model";
 
 const registerUser = TryCatch(
   async (
@@ -133,11 +136,79 @@ const loginUser = TryCatch(
 
 const getUser = TryCatch(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { user } = req;
+    const { user, userId: loggedInUserId } = req;
+    const { userId } = req.query;
+
+    let targetUser;
+    let userFollowedArtist;
+
+    // If userId is provided in query, fetch that user's details
+    if (userId) {
+      targetUser = await User.findById(userId).select('-password');
+      if (!targetUser) {
+        return next(new ErrorHandler("User not found", 404));
+      }
+
+      userFollowedArtist = await FollowUnfollow.find({
+        followedBy: loggedInUserId,
+        artistId: userId,
+      });
+
+    } else {
+      // Otherwise, use the logged-in user
+      targetUser = user;
+    }
+
+    // Calculate total funds raised by the user from all their projects
+    const projects = await Project.find({ userId: targetUser._id });
+    const totalFundsRaised = projects.reduce((sum, project) => sum + (project.fundingGoal || 0), 0);
+
+    // Calculate monthly ROI based on all project ROIs
+    let monthlyROI = 0;
+    if (projects.length > 0) {
+      const totalROI = projects.reduce((sum, project) => sum + (project.expectedROIPercentage || 0), 0);
+      monthlyROI = totalROI / projects.length; // Average ROI across all projects
+    }
+
+    // Get total successful investments in user's projects
+    const totalInvestments = await Payment.aggregate([
+      {
+        $lookup: {
+          from: "projects",
+          localField: "projectId",
+          foreignField: "_id",
+          as: "project"
+        }
+      },
+      {
+        $match: {
+          "project.userId": targetUser._id,
+          status: "SUCCESS"
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: "$amount" },
+          totalInvestors: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const actualFundsRaised = totalInvestments.length > 0 ? totalInvestments[0].totalAmount : 0;
+    const totalInvestors = totalInvestments.length > 0 ? totalInvestments[0].totalInvestors : 0;
 
     return SUCCESS(res, 200, "User details fetched successfully", {
       data: {
-        user,
+        user: {
+          ...targetUser.toObject(),
+          totalFundsRaised: actualFundsRaised,
+          totalFundingGoal: totalFundsRaised,
+          monthlyROI: Math.round(monthlyROI * 100) / 100, // Round to 2 decimal places
+          totalProjects: projects.length,
+          totalInvestors: totalInvestors,
+          isFollowed: userFollowedArtist ? userFollowedArtist?.length > 0 : undefined,
+        },
       },
     });
   }
@@ -407,7 +478,7 @@ const getDashboardStats = TryCatch(
 const updatePassword = TryCatch(
   async (req: Request, res: Response, next: NextFunction) => {
     const { userId } = req;
-    const { password , oldPassword } = req.body;
+    const { password, oldPassword } = req.body;
     const user = await getUserById(userId);
     const isOldPasswordValid = await user.matchPassword(oldPassword);
     if (!isOldPasswordValid) {
