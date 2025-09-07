@@ -49,14 +49,14 @@ const createProject = TryCatch(
       expectedReleaseDate,
       fundingDeadline,
     } = req.body;
-    
+
     // console.log("req.body::::::", req.body);
     // return;
 
     const files = getFiles(req, ["file"]);
 
     const distroKidFile = files.file[0];
-  
+
     // Get artist info
     const artist = await User.findById(userId);
     if (!artist) {
@@ -365,11 +365,11 @@ const getAllProjects = TryCatch(
     const query: any = {};
     if (user.role === "artist") {
       query.userId = userId;
-    }else{
+    } else {
       const investedProjects = await Payment.distinct("projectId", {
         userId: new mongoose.Types.ObjectId(userId),
       });
-       query._id =  { $nin: investedProjects };
+      query._id = { $nin: investedProjects };
     }
 
     const [projects, totalCount] = await Promise.all([
@@ -583,7 +583,7 @@ const getInvestedProjects = TryCatch(
 
     // Step 3: Fetch projects + total count in parallel
     const [projects, totalCount] = await Promise.all([
-      Project.find(query)
+      Project.find(query).populate("userId", "username email artistBio aboutTxt country favoriteGenre")
         .select("-automaticROI -verificationData")
         .skip((page - 1) * limit)
         .limit(limit),
