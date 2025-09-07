@@ -3,6 +3,8 @@ import userSchema from "../schema/user.schema";
 import userController from "../controller/user.controller";
 import validate from "../middleware/validate.middleware";
 import { authenticationMiddleware } from "../middleware/auth.middleware";
+import upload from "../middleware/multer.middleware";
+import validateFiles from "../middleware/validateFiles.middleware";
 
 const userRoutes = express.Router();
 
@@ -23,6 +25,8 @@ userRoutes.get("/", authenticationMiddleware, userController.getUser);
 userRoutes.put(
   "/",
   authenticationMiddleware,
+  upload.fields([{ name: "file", maxCount: 1 }]),
+  validateFiles(["file"]),
   validate(userSchema.updateUserProfileSchema),
   userController.updateUserProfile
 );

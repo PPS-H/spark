@@ -3,6 +3,7 @@ import {
   addMinutesToCurrentTime,
   generateJwtToken,
   generateOTP,
+  getFiles,
   SUCCESS,
   TryCatch,
 } from "../utils/helper";
@@ -175,6 +176,7 @@ const updateUserProfile = TryCatch(
     } = req.body;
 
     const { userId } = req;
+    const files = getFiles(req, ["file"]);
 
     const user = await getUserById(userId);
 
@@ -229,6 +231,11 @@ const updateUserProfile = TryCatch(
     if (darkMode !== undefined) updateData.darkMode = darkMode;
     if (companyDescription !== undefined)
       updateData.companyDescription = companyDescription;
+
+    if (files.file.length > 0) {
+      const profilePicture = files.file[0];
+      updateData.profilePicture = profilePicture;
+    }
 
     // Update user
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, {

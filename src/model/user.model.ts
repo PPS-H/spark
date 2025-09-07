@@ -55,6 +55,7 @@ const userSchema = new Schema<UserModel>(
     stripeConnectId: { type: String },
     isStripeAccountConnected: { type: Boolean, default: false },
     isPaymentMethodAdded: { type: Boolean, default: false },
+    profilePicture: { type: String },
   },
   { timestamps: true }
 );
