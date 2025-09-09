@@ -46,5 +46,11 @@ contentRoutes.put(
   validate(contentSchema.likeDislikeContentSchema),
   contentController.likeDislikeContent
 );
-
+0
+contentRoutes.delete(
+  "/:contentId",
+  authenticationMiddleware,
+  validate(contentSchema.deleteContentSchema),
+  contentController.deleteContent
+);
 export default contentRoutes;

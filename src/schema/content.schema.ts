@@ -43,10 +43,17 @@ const searchContentSchema = {
   }),
 };
 
+const deleteContentSchema = {
+  params: Joi.object({
+    contentId: ObjectIdValidation("Content ID"),
+  }),
+};
+
 export default {
   addContentSchema,
   getAllContentSchema,
   likeDislikeContentSchema,
   getTrendingContentSchema,
   searchContentSchema,
+  deleteContentSchema
 };

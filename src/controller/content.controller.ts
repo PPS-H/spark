@@ -64,10 +64,10 @@ const getAllContent = TryCatch(
     console.log("userId============", userId);
     const { type } = req.query;
 
-    const query: any = { userId };
+    const query: any = { userId , isDeleted: false};
     if (type) query.type = type;
 
-    const content = await Content.find(query);
+    const content = await Content.find(query).sort({ createdAt: -1 });
 
     return SUCCESS(res, 200, "Content fetched successfully", {
       data: {
@@ -637,11 +637,43 @@ const getUserContentSearchHisory = TryCatch(
   }
 );
 
+const deleteContent = TryCatch(
+  async (
+    req: Request<{ contentId: string }>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    const { contentId } = req.params;
+    const { userId } = req;
+
+    // Check if content exists and belongs to the user
+    const content = await Content.findOne({
+      _id: contentId,
+      userId: userId,
+      isDeleted: false
+    });
+
+    if (!content) {
+      return next(new ErrorHandler("Content not found or you don't have permission to delete it", 404));
+    }
+
+    // Soft delete - set isDeleted to true
+    await Content.findByIdAndUpdate(
+      contentId,
+      { isDeleted: true },
+      { new: true }
+    );
+
+    return SUCCESS(res, 200, "Content deleted successfully");
+  }
+);
+
 export default {
   addContent,
   getAllContent,
   likeDislikeContent,
   getTrendingContent,
   searchContent,
-  getUserContentSearchHisory
+  getUserContentSearchHisory,
+  deleteContent
 };
