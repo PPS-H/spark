@@ -27,4 +27,10 @@ artistRoutes.put(
   artistController.followUnfollowArtist
 );
 
+artistRoutes.get(
+  "/analytics",
+  authenticationMiddleware,
+  artistController.getAnalytics
+);
+
 export default artistRoutes;

@@ -26,7 +26,7 @@ userRoutes.put(
   "/",
   authenticationMiddleware,
   upload.fields([{ name: "file", maxCount: 1 }]),
-  validateFiles(["file"]),
+  // validateFiles(["file"]),
   validate(userSchema.updateUserProfileSchema),
   userController.updateUserProfile
 );

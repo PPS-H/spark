@@ -303,7 +303,7 @@ const updateUserProfile = TryCatch(
     if (companyDescription !== undefined)
       updateData.companyDescription = companyDescription;
 
-    if (files.file.length > 0) {
+    if (files && files?.file?.length > 0) {
       const profilePicture = files.file[0];
       updateData.profilePicture = profilePicture;
     }
