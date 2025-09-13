@@ -11,8 +11,8 @@ const projectRoutes = express.Router();
 projectRoutes.post(
   "/",
   authenticationMiddleware,
-  upload.fields([{ name: "file", maxCount: 1 }]),
-  validateFiles(["file"]),
+  upload.fields([{ name: "file", maxCount: 1 }, { name: "image", maxCount: 1 }]),
+  validateFiles(["file","image"]),
   validate(projectSchema.createProjectSchema),
   projectController.createProject
 );
@@ -26,6 +26,7 @@ projectRoutes.get(
 projectRoutes.put(
   "/:projectId",
   authenticationMiddleware,
+  upload.fields([{ name: "image", maxCount: 1 }]),
   validate(projectSchema.updateProjectSchema),
   projectController.updateProject
 );

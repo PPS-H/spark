@@ -53,9 +53,13 @@ const createProject = TryCatch(
     // console.log("req.body::::::", req.body);
     // return;
 
-    const files = getFiles(req, ["file"]);
+    const files = getFiles(req, ["file", "image"]);
 
-    const distroKidFile = files.file[0];
+    console.log("files::::::", files);
+
+    const distrokidFile = files.file[0];
+    const projectImage = files.image ? files.image[0] : null;
+    console.log("files::::::", distrokidFile, projectImage);
 
     // Get artist info
     const artist = await User.findById(userId);
@@ -94,11 +98,11 @@ const createProject = TryCatch(
       isDeleted: false,
     });
 
-    if (existingProject) {
-      return next(
-        new ErrorHandler("Project already exists for this song", 400)
-      );
-    }
+    // if (existingProject) {
+    //   return next(
+    //     new ErrorHandler("Project already exists for this song", 400)
+    //   );
+    // }
 
     // **MULTI-PLATFORM METADATA VERIFICATION (Optional)**
     const verificationService = new MetadataVerificationService();
@@ -229,8 +233,11 @@ const createProject = TryCatch(
         verifiedAt: verificationResults ? new Date() : null,
         status: projectStatus.ACTIVE,
         isActive: true,
-        distrokidFile: distroKidFile,
+        distrokidFile: distrokidFile,
+        image: projectImage
       };
+
+      console.log("projectData::::::", projectData,distrokidFile,projectImage);
 
       // **Add automatic ROI data if calculated**
       if (automaticROI) {
@@ -400,6 +407,10 @@ const updateProject = TryCatch(
     const { userId } = req;
     const { projectId } = req.params;
     const { title, fundingGoal, description, duration } = req.body;
+    
+    // Handle image upload
+    const files = getFiles(req, ["image"]);
+    const projectImage = files.image ? files.image[0] : null;
 
     // Check if project exists
     const project = await Project.findById(projectId);
@@ -420,6 +431,7 @@ const updateProject = TryCatch(
     if (fundingGoal !== undefined) updateData.fundingGoal = fundingGoal;
     if (description !== undefined) updateData.description = description;
     if (duration !== undefined) updateData.duration = duration;
+    if (projectImage) updateData.image = projectImage.path;
 
     // Update project
     const updatedProject = await Project.findByIdAndUpdate(
@@ -435,6 +447,7 @@ const updateProject = TryCatch(
         fundingGoal: updatedProject.fundingGoal,
         description: updatedProject.description,
         duration: updatedProject.duration,
+        image: updatedProject.image,
         userId: updatedProject.userId,
         createdAt: updatedProject.createdAt,
         updatedAt: updatedProject.updatedAt,
@@ -525,6 +538,7 @@ const getProjectROIData = TryCatch(
           title: project.title,
           songTitle: project.songTitle,
           artistName: project.artistName,
+          image: project.image,
           artist: { ...project.userId.toObject(), isLiked: isLiked ? true : false, isAlreadyInvested: stats.userInvested ? true : false },
         },
 
@@ -583,7 +597,7 @@ const getInvestedProjects = TryCatch(
 
     // Step 3: Fetch projects + total count in parallel
     const [projects, totalCount] = await Promise.all([
-      Project.find(query).populate("userId", "username email artistBio aboutTxt country favoriteGenre")
+      Project.find(query).populate("userId", "username email artistBio aboutTxt country favoriteGenre image")
         .select("-automaticROI -verificationData")
         .skip((page - 1) * limit)
         .limit(limit),

@@ -40,6 +40,9 @@ const projectSchema = new Schema<any>(
     },
     expectedReleaseDate: { type: Date },
     fundingDeadline: { type: Date },
+    
+    // Project image
+    image: { type: String }, // Path to uploaded image file
 
     expectedROIPercentage: { type: Number }, // e.g., 15.5 means 15.5% expected return
     automaticROI: {
@@ -88,7 +91,7 @@ const projectSchema = new Schema<any>(
     // DistroKid connection
     distroKidReleaseId: { type: String },
     distroKidConnected: { type: Boolean, default: false },
-    distroKidFile: { type: String },
+    distrokidFile: { type: String },
 
     isDeleted: { type: Boolean, default: false },
   },

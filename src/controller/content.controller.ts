@@ -64,7 +64,7 @@ const getAllContent = TryCatch(
     console.log("userId============", userId);
     const { type } = req.query;
 
-    const query: any = { userId , isDeleted: false};
+    const query: any = { userId, isDeleted: false };
     if (type) query.type = type;
 
     const content = await Content.find(query).sort({ createdAt: -1 });
@@ -389,7 +389,8 @@ const getSongs = async (
               artistBio: 1,
               socialMediaLinks: 1,
               country: 1,
-              favoriteGenre: 1
+              favoriteGenre: 1,
+              profilePicture: 1
             },
           },
         ],

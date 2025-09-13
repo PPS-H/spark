@@ -75,7 +75,7 @@ const createProjectSchema = {
     // Additional fields
     releaseType: Joi.string().valid('single', 'album', 'ep').required(),
     expectedReleaseDate: Joi.date().optional(),
-    fundingDeadline: Joi.date().greater('now').optional()
+    fundingDeadline: Joi.date().greater('now').optional(),
   })
 };
 
@@ -89,6 +89,7 @@ const updateProjectSchema = {
     fundingGoal: numberValidation("Funding Goal", false),
     description: stringValidation("Description", false),
     duration: specificStringValidation("Duration", projectDurationType, false),
+    image: Joi.string().optional(),
   }),
 };
 
