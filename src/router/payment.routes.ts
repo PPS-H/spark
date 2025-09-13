@@ -15,6 +15,13 @@ paymentRoutes.post(
   paymentController.createStripeAccount
 );
 
+paymentRoutes.post(
+  "/connect-stripe",
+  authenticationMiddleware,
+  roleAccessMiddleware(userRoles.ARTIST),
+  paymentController.createStripeAccount
+);
+
 paymentRoutes.get("/account/refresh", paymentController.accountRefresh);
 
 paymentRoutes.get(
@@ -52,6 +59,11 @@ paymentRoutes.post(
   "/createCheckoutSession",
   authenticationMiddleware,
   paymentController.createCheckoutSession
+);
+
+paymentRoutes.get(
+  "/products",
+  paymentController.getStripeProducts
 );
 
 export default paymentRoutes;

@@ -137,13 +137,15 @@ const accountSuccess = TryCatch(
 
     const user = await User.findOne({ stripeConnectId });
 
-    if (!user || !account.details_submitted) return res.redirect("refresh");
+    if (!user || !account.details_submitted) {
+      return res.redirect(`${process.env.FRONTEND_URL || "http://localhost:5173"}/stripe-connect-failed`);
+    }
 
     user.isStripeAccountConnected = true;
     await user.save();
-    res.sendFile(
-      path.join(__dirname, "../../../src/public/view", "account_success.html")
-    );
+
+    // Redirect to success page
+    res.redirect(`${process.env.FRONTEND_URL || "http://localhost:5173"}/stripe-connect-success`);
   }
 );
 
@@ -175,8 +177,7 @@ const makePayment = TryCatch(
     if (amount > project.fundingGoal - projectStats.totalInvested) {
       return next(
         new ErrorHandler(
-          `You can only invest up to ${
-            project.fundingGoal - projectStats.totalInvested
+          `You can only invest up to ${project.fundingGoal - projectStats.totalInvested
           } in this project`,
           400
         )
@@ -488,6 +489,60 @@ const createCheckoutSession = TryCatch(
   }
 );
 
+// Get Stripe Products
+const getStripeProducts = TryCatch(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Fetch all products from Stripe
+      const products = await stripe.products.list({
+        active: true,
+        expand: ['data.default_price']
+      });
+      // Filter and format products for artist and label
+      const formattedProducts = products.data
+        .filter(product =>
+          product.metadata?.type === 'artist' || product.metadata?.type === 'label'
+        )
+        .map(product => {
+          const price = product.default_price as any;
+          return {
+            id: product.id,
+            name: product.name,
+            description: product.description || '',
+            type: product.metadata?.type || 'unknown',
+            price: price ? {
+              id: price.id,
+              amount: price.unit_amount,
+              currency: price.currency,
+              interval: price.recurring?.interval || 'month',
+              intervalCount: price.recurring?.interval_count || 1
+            } : null,
+            features: product.metadata?.features ?
+              JSON.parse(product.metadata.features) : [],
+            marketingFeatures: product.metadata?.marketingFeatures ?
+              JSON.parse(product.metadata.marketingFeatures) : [],
+            active: product.active,
+            created: product.created
+          };
+        }).sort((a, b) => {
+          if (!a.price && !b.price) return 0;
+          if (!a.price) return 1;  // move nulls to bottom
+          if (!b.price) return -1;
+          return a.price.amount - b.price.amount; // ascending
+        });
+
+      res.status(200).json({
+        success: true,
+        message: "Products fetched successfully",
+        data: formattedProducts
+      });
+    } catch (error) {
+      console.error('Error fetching Stripe products:', error);
+      return next(new ErrorHandler("Failed to fetch products", 500));
+    }
+  }
+);
+
 export default {
   createStripeAccount,
   accountRefresh,
@@ -497,4 +552,5 @@ export default {
   addCustomerCard,
   deleteCustomerCard,
   createCheckoutSession,
+  getStripeProducts,
 };
