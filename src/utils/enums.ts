@@ -2,6 +2,7 @@ export const userRoles = {
   ARTIST: "artist",
   LABEL: "label",
   FAN: "fan",
+  ADMIN:"admin"
 };
 
 export const musicPlatforms = {
@@ -87,6 +88,7 @@ export const payoutStatus = {
 export const projectStatus = {
   DRAFT: "draft",
   ACTIVE: "active",
+  REJECTED: "rejected",
 };
 
 export const paymentStatus = {

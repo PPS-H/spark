@@ -392,6 +392,9 @@ const getAllProjects = TryCatch(
         userId: new mongoose.Types.ObjectId(userId),
       });
       query._id = { $nin: investedProjects };
+      
+      // For label and fan roles, only show projects where funding deadline has not been reached
+      query.fundingDeadline = { $gt: new Date() };
     }
 
     const [projects, totalCount] = await Promise.all([
@@ -402,8 +405,46 @@ const getAllProjects = TryCatch(
       Project.countDocuments(query),
     ]);
 
-    return SUCCESS(res, 200, "Projects fetched  successfully", {
-      data: { projects },
+    // For label and fan roles, filter out projects where funding goal has been reached
+    let filteredProjects = projects;
+    if (user.role !== "artist") {
+      const projectsWithFundingStatus = await Promise.all(
+        projects.map(async (project) => {
+          // Get current funding for this project
+          const fundingStats = await Payment.aggregate([
+            {
+              $match: {
+                projectId: new mongoose.Types.ObjectId(project._id),
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                totalRaised: { $sum: "$amount" },
+              },
+            },
+          ]);
+
+          const totalRaised = fundingStats[0]?.totalRaised || 0;
+          const fundingGoal = parseFloat(project.fundingGoal);
+          
+          return {
+            project,
+            totalRaised,
+            fundingGoal,
+            isFullyFunded: totalRaised >= fundingGoal
+          };
+        })
+      );
+
+      // Filter out fully funded projects for labels and fans
+      filteredProjects = projectsWithFundingStatus
+        .filter(item => !item.isFullyFunded)
+        .map(item => item.project);
+    }
+
+    return SUCCESS(res, 200, "Projects fetched successfully", {
+      data: { projects: filteredProjects },
       pagination: {
         page,
         limit,

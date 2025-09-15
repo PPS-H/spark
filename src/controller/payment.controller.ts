@@ -437,7 +437,7 @@ const deleteCustomerCard = TryCatch(async (req, res, next) => {
 const createCheckoutSession = TryCatch(
   async (req: Request, res: Response, next: NextFunction) => {
     const { projectId, amount, currency = "usd" } = req.body;
-    const { userId } = req;
+    const { userId, user } = req;
 
     if (!projectId || !amount) {
       return next(new ErrorHandler("Project ID and amount are required", 400));
@@ -454,9 +454,57 @@ const createCheckoutSession = TryCatch(
     }
 
     // Get user details
-    const user = await getUserById(userId);
-    if (!user) {
+    const userDetails = await getUserById(userId);
+    if (!userDetails) {
       return next(new ErrorHandler("User not found", 404));
+    }
+
+    // Check funding deadline for label and fan roles
+    if ((user.role === "label" || user.role === "fan") && project.fundingDeadline) {
+      const currentDate = new Date();
+      if (currentDate > project.fundingDeadline) {
+        return next(new ErrorHandler(
+          "Investment deadline has passed for this project. You can no longer invest in this project.",
+          400
+        ));
+      }
+    }
+
+    // Check if funding goal has been reached for label and fan roles
+    if (user.role === "label" || user.role === "fan") {
+      // Get current funding for this project
+      const fundingStats = await Payment.aggregate([
+        {
+          $match: {
+            projectId: new mongoose.Types.ObjectId(projectId),
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalRaised: { $sum: "$amount" },
+          },
+        },
+      ]);
+
+      const totalRaised = fundingStats[0]?.totalRaised || 0;
+      const fundingGoal = parseFloat(project.fundingGoal);
+      
+      if (totalRaised >= fundingGoal) {
+        return next(new ErrorHandler(
+          "Funding goal has been reached for this project. You can no longer invest in this project.",
+          400
+        ));
+      }
+
+      // Check if the investment amount would exceed the funding goal
+      if (totalRaised + amount > fundingGoal) {
+        const remainingAmount = fundingGoal - totalRaised;
+        return next(new ErrorHandler(
+          `Investment amount exceeds remaining funding goal. Maximum investment allowed is $${remainingAmount.toFixed(2)}.`,
+          400
+        ));
+      }
     }
 
     // Create Stripe checkout session
@@ -478,7 +526,7 @@ const createCheckoutSession = TryCatch(
       mode: "payment",
       success_url: `${process.env.FRONTEND_URL || "http://localhost:5173"}/invest/${projectId}?payment=success`,
       cancel_url: `${process.env.FRONTEND_URL || "http://localhost:5173"}/invest/${projectId}?payment=cancelled`,
-      customer_email: user.email,
+      customer_email: userDetails.email,
       metadata: {
         projectId: projectId,
         userId: userId,
