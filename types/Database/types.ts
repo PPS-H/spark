@@ -40,6 +40,8 @@ export interface UserModel extends Document {
   stripeConnectId: string;
   isStripeAccountConnected: boolean;
   isPaymentMethodAdded: boolean;
+  subscriptionId: string;
+  isProMember: boolean;
   profilePicture: string;
 
   matchPassword(password: string): Promise<boolean>;

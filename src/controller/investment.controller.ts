@@ -28,6 +28,20 @@ const createInvestment = TryCatch(
     const { userId } = req;
     const { projectId, amount, investmentType } = req.body;
 
+    // Check if user has an active subscription (for labels and investors)
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new ErrorHandler("User not found", 404));
+    }
+
+    // Only labels and investors need Pro subscription to invest
+    if ((user.role === 'label' || user.role === 'investor') && !user.isProMember) {
+      return next(new ErrorHandler(
+        "Pro subscription required to make investments. Please upgrade to Pro to access this feature.",
+        403
+      ));
+    }
+
     // Validate project exists
     const project = await Project.findById(projectId);
     if (!project) {

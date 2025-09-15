@@ -11,14 +11,14 @@ const paymentRoutes = express.Router();
 paymentRoutes.post(
   "/createStripeAccount",
   authenticationMiddleware,
-  roleAccessMiddleware(userRoles.ARTIST),
+  roleAccessMiddleware([userRoles.ARTIST, userRoles.LABEL]),
   paymentController.createStripeAccount
 );
 
 paymentRoutes.post(
   "/connect-stripe",
   authenticationMiddleware,
-  roleAccessMiddleware(userRoles.ARTIST),
+  roleAccessMiddleware([userRoles.ARTIST, userRoles.LABEL]),
   paymentController.createStripeAccount
 );
 
@@ -64,6 +64,18 @@ paymentRoutes.post(
 paymentRoutes.get(
   "/products",
   paymentController.getStripeProducts
+);
+
+paymentRoutes.post(
+  "/create-subscription-checkout",
+  authenticationMiddleware,
+  paymentController.createSubscriptionCheckout
+);
+
+paymentRoutes.get(
+  "/subscription/:userId",
+  authenticationMiddleware,
+  paymentController.getUserSubscription
 );
 
 export default paymentRoutes;

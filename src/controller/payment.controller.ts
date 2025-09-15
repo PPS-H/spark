@@ -64,6 +64,14 @@ const createStripeAccount = TryCatch(
 
     const user = await getUserById(userId);
 
+    // Check if user has an active subscription
+    if (!user.isProMember) {
+      return next(new ErrorHandler(
+        "Pro subscription required to connect Stripe account. Please upgrade to Pro to access this feature.",
+        403
+      ));
+    }
+
     if (user.stripeConnectId && user.isStripeAccountConnected)
       return next(new ErrorHandler("Account already created", 400));
 
@@ -493,16 +501,29 @@ const createCheckoutSession = TryCatch(
 const getStripeProducts = TryCatch(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const { type } = req.query;
+      
       // Fetch all products from Stripe
       const products = await stripe.products.list({
         active: true,
         expand: ['data.default_price']
       });
-      // Filter and format products for artist and label
-      const formattedProducts = products.data
-        .filter(product =>
+      
+      // Filter products based on type parameter
+      let filteredProducts = products.data;
+      if (type) {
+        filteredProducts = products.data.filter(product => 
+          product.metadata?.type === type
+        );
+      } else {
+        // Default filter for artist and label
+        filteredProducts = products.data.filter(product =>
           product.metadata?.type === 'artist' || product.metadata?.type === 'label'
-        )
+        );
+      }
+      
+      // Format products
+      const formattedProducts = filteredProducts
         .map(product => {
           const price = product.default_price as any;
           return {
@@ -543,6 +564,137 @@ const getStripeProducts = TryCatch(
   }
 );
 
+// Create Subscription Checkout Session
+const createSubscriptionCheckout = TryCatch(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { priceId, userId } = req.body;
+
+      if (!priceId || !userId) {
+        return next(new ErrorHandler("Price ID and User ID are required", 400));
+      }
+
+      // Get user details
+      const user = await getUserById(userId);
+      if (!user) {
+        return next(new ErrorHandler("User not found", 404));
+      }
+
+      // Get price details from Stripe
+      const price = await stripe.prices.retrieve(priceId);
+      const product = await stripe.products.retrieve(price.product as string);
+
+      // Create or retrieve Stripe customer
+      let customer;
+      try {
+        if (user.stripeCustomerId) {
+          // Retrieve existing customer
+          customer = await stripe.customers.retrieve(user.stripeCustomerId);
+        } else {
+          // Create new customer
+          customer = await stripe.customers.create({
+            email: user.email,
+            name: user.username,
+            metadata: {
+              userId: userId,
+              role: user.role
+            }
+          });
+          
+          // Update user with customer ID
+          user.stripeCustomerId = customer.id;
+          await user.save();
+        }
+      } catch (customerError) {
+        console.error('Error creating/retrieving customer:', customerError);
+        return next(new ErrorHandler("Failed to create customer", 500));
+      }
+
+      // Create checkout session for subscription
+      const session = await stripe.checkout.sessions.create({
+        customer: customer.id,
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: `${process.env.FRONTEND_URL || "http://localhost:5173"}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.FRONTEND_URL || "http://localhost:5173"}/settings`,
+        metadata: {
+          userId: userId,
+          planType: product.metadata?.type || 'unknown',
+          customerId: customer.id
+        },
+        subscription_data: {
+          metadata: {
+            userId: userId,
+            planType: product.metadata?.type || 'unknown',
+            customerId: customer.id
+          }
+        }
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Checkout session created successfully",
+        data: {
+          sessionId: session.id,
+          url: session.url
+        }
+      });
+
+    } catch (error) {
+      console.error('Error creating subscription checkout:', error);
+      return next(new ErrorHandler("Failed to create checkout session", 500));
+    }
+  }
+);
+
+// Get User Subscription Details
+const getUserSubscription = TryCatch(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req.params;
+
+      if (!userId) {
+        return next(new ErrorHandler("User ID is required", 400));
+      }
+
+      // Get user details
+      const user = await getUserById(userId);
+      if (!user) {
+        return next(new ErrorHandler("User not found", 404));
+      }
+
+      // Get subscription details
+      const Subscription = require('../model/subscription.model').default;
+      const subscription = await Subscription.findOne({ userId: userId })
+        .sort({ createdAt: -1 }); // Get the latest subscription
+
+      if (!subscription) {
+        return res.status(200).json({
+          success: true,
+          message: "No subscription found",
+          data: null
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Subscription details fetched successfully",
+        data: subscription
+      });
+
+    } catch (error) {
+      console.error('Error fetching user subscription:', error);
+      return next(new ErrorHandler("Failed to fetch subscription details", 500));
+    }
+  }
+);
+
 export default {
   createStripeAccount,
   accountRefresh,
@@ -553,4 +705,6 @@ export default {
   deleteCustomerCard,
   createCheckoutSession,
   getStripeProducts,
+  createSubscriptionCheckout,
+  getUserSubscription,
 };

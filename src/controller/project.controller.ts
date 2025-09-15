@@ -20,6 +20,7 @@ import mongoose from "mongoose";
 import Likes from "../model/likes.model";
 import Payment from "../model/payment.model";
 import { getFiles } from "../utils/helper";
+import { requireActiveSubscription, requirePlanType } from "../middleware/subscription.middleware";
 
 const createProject = TryCatch(
   async (
@@ -28,6 +29,20 @@ const createProject = TryCatch(
     next: NextFunction
   ) => {
     const { userId } = req;
+    
+    // Check if user has an active subscription
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new ErrorHandler("User not found", 404));
+    }
+
+    if (!user.isProMember) {
+      return next(new ErrorHandler(
+        "Pro subscription required to create projects. Please upgrade to Pro to access this feature.",
+        403
+      ));
+    }
+
     const {
       title,
       fundingGoal,
