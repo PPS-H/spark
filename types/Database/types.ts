@@ -63,9 +63,60 @@ export interface ContentModel extends Document {
 export interface ProjectCampaignModel extends Document {
   userId: any;
   title: string;
-  fundingGoal: string;
+  fundingGoal: number;
   duration: string;
   description: string;
+  songTitle: string;
+  artistName: string;
+  isrcCode: string;
+  upcCode?: string;
+  spotifyTrackLink?: string;
+  spotifyTrackId?: string;
+  youtubeMusicLink?: string;
+  youtubeVideoId?: string;
+  deezerTrackLink?: string;
+  deezerTrackId?: string;
+  releaseType: string;
+  expectedReleaseDate?: Date;
+  fundingDeadline?: Date;
+  image?: string;
+  expectedROIPercentage?: number;
+  automaticROI?: {
+    totalGrossRevenue: number;
+    artistShare: number;
+    investorShare: number;
+    platformFee: number;
+    projectedStreams: {
+      spotify: number;
+      youtube: number;
+      deezer: number;
+    };
+    revenueBreakdown: {
+      spotify: number;
+      youtube: number;
+      deezer: number;
+    };
+    confidence: number;
+    methodology: string;
+    calculatedAt: Date;
+    disclaimer: string;
+  };
+  isVerified: boolean;
+  verificationStatus: string;
+  verificationData?: any;
+  verifiedAt?: Date;
+  status: string;
+  isActive: boolean;
+  distroKidReleaseId?: string;
+  distroKidConnected: boolean;
+  distrokidFile?: string;
+  invoiceFile?: string;
+  milestones: Array<{
+    name: string;
+    amount: number;
+    description: string;
+    order: number;
+  }>;
 
   createdAt: Date;
   updatedAt: Date;

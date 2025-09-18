@@ -93,6 +93,17 @@ const projectSchema = new Schema<any>(
     distroKidConnected: { type: Boolean, default: false },
     distrokidFile: { type: String },
 
+    // Invoice file
+    invoiceFile: { type: String },
+
+    // Milestones
+    milestones: [{
+      name: { type: String, required: true },
+      amount: { type: Number, required: true },
+      description: { type: String, required: true },
+      order: { type: Number, required: true }
+    }],
+
     isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true }

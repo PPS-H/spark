@@ -22,10 +22,19 @@ const storage = multer.diskStorage({
       subDir = "audios";
     } else if (file.mimetype.startsWith("video/")) {
       subDir = "videos";
+    } else if (file.fieldname === "invoice" && (
+      file.mimetype === "application/pdf" ||
+      file.mimetype === "application/msword" ||
+      file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      file.mimetype === "text/plain" ||
+      file.mimetype === "image/jpeg" ||
+      file.mimetype === "image/png"
+    )) {
+      subDir = "documents";
     } else {
       return cb(
         new Error(
-          `Only audio, video, and image files are allowed for the ${file.fieldname}`
+          `Only audio, video, image, and document files are allowed for the ${file.fieldname}`
         ),
         null
       );

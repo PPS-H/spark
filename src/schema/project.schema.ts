@@ -76,6 +76,54 @@ const createProjectSchema = {
     releaseType: Joi.string().valid('single', 'album', 'ep').required(),
     expectedReleaseDate: Joi.date().optional(),
     fundingDeadline: Joi.date().greater('now').optional(),
+    
+    // Milestones validation
+    milestones: Joi.array()
+      .items(
+        Joi.object({
+          name: Joi.string().required().messages({
+            'any.required': 'Milestone name is required',
+            'string.empty': 'Milestone name cannot be empty'
+          }),
+          amount: Joi.number().positive().required().messages({
+            'any.required': 'Milestone amount is required',
+            'number.positive': 'Milestone amount must be positive',
+            'number.base': 'Milestone amount must be a number'
+          }),
+          description: Joi.string().required().messages({
+            'any.required': 'Milestone description is required',
+            'string.empty': 'Milestone description cannot be empty'
+          }),
+          order: Joi.number().integer().positive().required().messages({
+            'any.required': 'Milestone order is required',
+            'number.integer': 'Milestone order must be an integer',
+            'number.positive': 'Milestone order must be positive'
+          })
+        })
+      )
+      .min(1)
+      .required()
+      .messages({
+        'any.required': 'At least one milestone is required',
+        'array.min': 'At least one milestone is required',
+        'array.base': 'Milestones must be an array'
+      })
+      .custom((milestones, helpers) => {
+        const { fundingGoal } = helpers.state.ancestors[0];
+        if (fundingGoal) {
+          const totalMilestoneAmount = milestones.reduce((sum: number, milestone: any) => sum + milestone.amount, 0);
+          if (totalMilestoneAmount !== fundingGoal) {
+            return helpers.error('milestone.total.mismatch', {
+              totalMilestoneAmount,
+              fundingGoal
+            });
+          }
+        }
+        return milestones;
+      })
+      .messages({
+        'milestone.total.mismatch': 'Total milestone amount ({{#totalMilestoneAmount}}) must equal funding goal ({{#fundingGoal}})'
+      }),
   })
 };
 

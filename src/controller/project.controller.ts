@@ -59,22 +59,22 @@ const createProject = TryCatch(
       deezerTrackLink,
       deezerTrackId,
       releaseType,
-      genre,
-      releaseDate,
       expectedReleaseDate,
       fundingDeadline,
+      milestones,
     } = req.body;
 
     // console.log("req.body::::::", req.body);
     // return;
 
-    const files = getFiles(req, ["file", "image"]);
+    const files = getFiles(req, ["file", "image", "invoice"]);
 
     console.log("files::::::", files);
 
     const distrokidFile = files.file[0];
     const projectImage = files.image ? files.image[0] : null;
-    console.log("files::::::", distrokidFile, projectImage);
+    const invoiceFile = files.invoice ? files.invoice[0] : null;
+    console.log("files::::::", distrokidFile, projectImage, invoiceFile);
 
     // Get artist info
     const artist = await User.findById(userId);
@@ -98,6 +98,11 @@ const createProject = TryCatch(
         new ErrorHandler("UPC code is required for albums and EPs", 400)
       );
     }
+
+    // Set milestone order based on array index (schema validation handles the rest)
+    milestones.forEach((milestone: any, index: number) => {
+      milestone.order = index + 1;
+    });
 
     // Check for duplicates
     const existingProject = await Project.findOne({
@@ -188,7 +193,7 @@ const createProject = TryCatch(
     let expectedROIPercentage = 0;
     try {
       automaticROI = await AutomaticROICalculationService.calculateAutomaticROI(
-        { genre, duration, fundingGoal },
+        { duration, fundingGoal },
         historicalData,
         verificationResults
       );
@@ -231,9 +236,7 @@ const createProject = TryCatch(
         deezerTrackLink,
         deezerTrackId: verifiedDeezerTrackId,
         releaseType,
-        genre,
         expectedROIPercentage: expectedROIPercentage,
-        releaseDate: releaseDate ? new Date(releaseDate) : undefined,
         expectedReleaseDate: expectedReleaseDate
           ? new Date(expectedReleaseDate)
           : undefined,
@@ -246,10 +249,12 @@ const createProject = TryCatch(
         verificationStatus: verificationResults ? "verified" : "unverified",
         verificationData: verificationResults,
         verifiedAt: verificationResults ? new Date() : null,
-        status: projectStatus.ACTIVE,
-        isActive: true,
+        status: projectStatus.DRAFT, // Changed to DRAFT for admin approval
+        isActive: false, // Changed to false for admin approval
         distrokidFile: distrokidFile,
-        image: projectImage
+        image: projectImage,
+        invoiceFile: invoiceFile,
+        milestones: milestones
       };
 
       console.log("projectData::::::", projectData,distrokidFile,projectImage);
@@ -279,7 +284,6 @@ const createProject = TryCatch(
         songTitle: project.songTitle,
         artistName: project.artistName,
         releaseType: project.releaseType,
-        genre: project.genre,
         duration: project.duration,
         isVerified: project.isVerified,
         verificationStatus: project.verificationStatus,
@@ -287,7 +291,8 @@ const createProject = TryCatch(
         isActive: project.isActive,
         fundingGoal: project.fundingGoal,
         fundingDeadline: project.fundingDeadline,
-        canAcceptInvestments: true,
+        milestones: project.milestones,
+        canAcceptInvestments: false, // Changed to false since it's now DRAFT status
 
         // Verification summary
         verificationSummary: verificationResults ? {
@@ -316,7 +321,7 @@ const createProject = TryCatch(
 
       // **Add automatic ROI to response**
       if (automaticROI) {
-        const fundingGoalAmount = parseFloat(fundingGoal);
+        const fundingGoalAmount = fundingGoal;
 
         responseData.automaticROI = {
           totalGrossRevenue: automaticROI.totalGrossRevenue,
@@ -363,7 +368,7 @@ const createProject = TryCatch(
       return SUCCESS(
         res,
         201,
-        "Project created with automatic ROI calculation",
+        "Project created successfully and submitted for admin approval",
         {
           data: responseData,
         }
