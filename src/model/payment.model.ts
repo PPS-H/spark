@@ -19,6 +19,7 @@ const paymentSchema = new Schema<PaymentModel>(
     type: {
       type: String,
       enum: [paymentType.INVESTMENT, paymentType.MILESTONE_TRANSFER, paymentType.REFUND],
+      default: paymentType.INVESTMENT,
       required: true,
     },
     status: {
