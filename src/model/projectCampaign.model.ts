@@ -40,7 +40,7 @@ const projectSchema = new Schema<any>(
     },
     expectedReleaseDate: { type: Date },
     fundingDeadline: { type: Date },
-    
+
     // Project image
     image: { type: String }, // Path to uploaded image file
 
@@ -101,7 +101,8 @@ const projectSchema = new Schema<any>(
       name: { type: String, required: true },
       amount: { type: Number, required: true },
       description: { type: String, required: true },
-      order: { type: Number, required: true }
+      order: { type: Number, required: true },
+      status: { type: String, default: "pending", enum: ["pending", "approved",] }
     }],
 
     isDeleted: { type: Boolean, default: false },

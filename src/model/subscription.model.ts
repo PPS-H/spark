@@ -73,7 +73,7 @@ const subscriptionSchema = new Schema(
     },
     currency: {
       type: String,
-      default: 'usd',
+      default: 'eur',
     },
     interval: {
       type: String,

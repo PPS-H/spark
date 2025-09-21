@@ -400,15 +400,18 @@ const getAllProjects = TryCatch(
       
       // For label and fan roles, only show projects where funding deadline has not been reached
       query.fundingDeadline = { $gt: new Date() };
+      query.status = { $ne: projectStatus.DRAFT };
     }
 
     const [projects, totalCount] = await Promise.all([
       Project.find(query)
         .select("-automaticROI -verificationData")
         .skip((page - 1) * limit)
-        .limit(limit),
+        .limit(limit).sort({createdAt:-1}),
       Project.countDocuments(query),
     ]);
+
+    console.log("projects::::::", projects);
 
     // For label and fan roles, filter out projects where funding goal has been reached
     let filteredProjects = projects;
@@ -529,7 +532,7 @@ const getProjectROIData = TryCatch(
     const project = await Project.findOne({
       _id: projectId,
       isDeleted: false,
-      isActive: true,
+      status: { $ne: projectStatus.DRAFT },
     }).populate("userId", "username email artistBio aboutTxt");
 
     if (!project) {

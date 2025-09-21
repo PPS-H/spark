@@ -33,4 +33,18 @@ artistRoutes.get(
   artistController.getAnalytics
 );
 
+artistRoutes.post(
+  "/fund-unlock-request",
+  authenticationMiddleware,
+  validate(artistSchema.submitFundUnlockRequestSchema),
+  artistController.submitFundUnlockRequest
+);
+
+artistRoutes.get(
+  "/fund-unlock-request/:projectId/status",
+  authenticationMiddleware,
+  validate(artistSchema.getFundUnlockRequestStatusSchema),
+  artistController.getFundUnlockRequestStatus
+);
+
 export default artistRoutes;

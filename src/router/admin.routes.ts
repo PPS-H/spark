@@ -33,4 +33,25 @@ adminRoutes.get(
   adminController.getProjectDetails
 );
 
+adminRoutes.get(
+  "/fund-unlock-requests",
+  adminAuthenticationMiddleware,
+  validate(adminSchema.adminGetFundUnlockRequestsSchema),
+  adminController.getFundUnlockRequests
+);
+
+adminRoutes.get(
+  "/fund-unlock-request/:requestId",
+  adminAuthenticationMiddleware,
+  validate(adminSchema.adminGetFundRequestDetailsSchema),
+  adminController.getFundRequestDetails
+);
+
+adminRoutes.put(
+  "/fund-unlock-request/:requestId/approve-reject",
+  adminAuthenticationMiddleware,
+  validate(adminSchema.adminApproveRejectFundRequestSchema),
+  adminController.approveRejectFundRequest
+);
+
 export default adminRoutes;

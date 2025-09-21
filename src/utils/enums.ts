@@ -95,3 +95,9 @@ export const paymentStatus = {
   SUCCESS: "success",
   FAILED: "failed",
 };
+
+export const paymentType = {
+  INVESTMENT: "investment",
+  MILESTONE_TRANSFER: "milestone_transfer",
+  REFUND: "refund",
+};

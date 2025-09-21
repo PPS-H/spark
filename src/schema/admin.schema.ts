@@ -31,11 +31,39 @@ const adminGetProjectDetailsSchema = {
   }),
 };
 
+const adminGetFundUnlockRequestsSchema = {
+  query: Joi.object({
+    page: numberValidation("Page", false),
+    limit: numberValidation("Limit", false),
+    status: specificStringValidation("Status", ["pending", "approved", "rejected"], false),
+  }),
+};
+
+const adminApproveRejectFundRequestSchema = {
+  params: Joi.object({
+    requestId: ObjectIdValidation("Request ID"),
+  }),
+  body: Joi.object({
+    action: specificStringValidation("Action", ["approve", "reject"], true),
+    adminResponse: stringValidation("Admin Response", false),
+    milestoneId: ObjectIdValidation("Milestone ID", false),
+  }),
+};
+
+const adminGetFundRequestDetailsSchema = {
+  params: Joi.object({
+    requestId: ObjectIdValidation("Request ID"),
+  }),
+};
+
 const adminSchema = {
   adminLoginSchema,
   adminGetDraftProjectsSchema,
   adminApproveRejectProjectSchema,
   adminGetProjectDetailsSchema,
+  adminGetFundUnlockRequestsSchema,
+  adminApproveRejectFundRequestSchema,
+  adminGetFundRequestDetailsSchema,
 };
 
 export default adminSchema;

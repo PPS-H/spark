@@ -175,14 +175,19 @@ export interface RevenueModel {
 export interface PaymentModel extends Document {
   userId: any;
   projectId: any;
+  projectMilestoneId?: any;
   amount: number;
-  expectedReturn: number;
+  expectedReturn?: number;
   transactionDate: Date;
   cardId?: string;
   transactionId?: string;
   transferId?: string;
   paymentIntentId?: string;
+  stripeTransferId?: string;
+  stripeTransferStatus?: string;
+  type: string;
   status: string;
+  description?: string;
 
   createdAt: Date;
   updatedAt: Date;

@@ -14,7 +14,21 @@ const likeDislikeArtistSchema = {
   }),
 };
 
+const submitFundUnlockRequestSchema = {
+  body: Joi.object({
+    projectId: ObjectIdValidation("Project ID"),
+  }),
+};
+
+const getFundUnlockRequestStatusSchema = {
+  params: Joi.object({
+    projectId: ObjectIdValidation("Project ID"),
+  }),
+};
+
 export default {
   getFeaturedArtistsSchema,
   likeDislikeArtistSchema,
+  submitFundUnlockRequestSchema,
+  getFundUnlockRequestStatusSchema,
 };

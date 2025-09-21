@@ -7,6 +7,8 @@ import Content from "../model/content.model";
 import Investment from "../model/investment.model";
 import Revenue from "../model/revenvue.model";
 import FollowUnfollow from "../model/followUnfollow.model";
+import FundUnlockRequest from "../model/fundUnlockRequest.model";
+import Payment from "../model/payment.model";
 import { likesType, paymentStatus, userRoles, contentType, investmentStatus, revenueSource } from "../utils/enums";
 import { getUserById } from "../services/user.services";
 import ErrorHandler from "../utils/ErrorHandler";
@@ -569,9 +571,196 @@ const getAnalytics = TryCatch(
   }
 );
 
+const submitFundUnlockRequest = TryCatch(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { user } = req;
+    const { projectId } = req.body;
+
+    // Validate input
+    if (!projectId) {
+      return next(new ErrorHandler("Project ID is required", 400));
+    }
+
+    // Check if project exists and belongs to the artist
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return next(new ErrorHandler("Project not found", 404));
+    }
+
+    if (project.userId.toString() !== user._id.toString()) {
+      return next(new ErrorHandler("You can only submit fund unlock requests for your own projects", 403));
+    }
+
+    // Check if project is active
+    if (project.status !== "active") {
+      return next(new ErrorHandler("Fund unlock requests can only be submitted for active projects", 400));
+    }
+
+    // Check if project has milestones
+    if (!project.milestones || project.milestones.length === 0) {
+      return next(new ErrorHandler("Project must have milestones to submit fund unlock requests", 400));
+    }
+
+    // Check if there's already a pending request for this project
+    const existingRequest = await FundUnlockRequest.findOne({
+      projectId,
+      artistId: user._id,
+      status: "pending"
+    });
+
+    if (existingRequest) {
+      return next(new ErrorHandler("You already have a pending fund unlock request for this project", 400));
+    }
+
+    // Calculate total funds raised for this project
+    const totalRaised = await Payment.aggregate([
+      {
+        $match: {
+          projectId: new mongoose.Types.ObjectId(projectId),
+          status: paymentStatus.SUCCESS
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: "$amount" }
+        }
+      }
+    ]);
+
+    const fundsRaised = totalRaised[0]?.total || 0;
+    const fundingGoal = project.fundingGoal;
+    const fundingPercentage = (fundsRaised / fundingGoal) * 100;
+
+    // Check if project has reached 50% of funding goal
+    if (fundingPercentage < 50) {
+      return next(new ErrorHandler("Fund unlock requests can only be submitted when the project reaches 50% of its funding goal", 400));
+    }
+
+    // Find the next milestone to unlock based on current funding percentage
+    let targetMilestone = null;
+    let milestoneIndex = -1;
+
+    // Sort milestones by order
+    const sortedMilestones = project.milestones.sort((a: any, b: any) => a.order - b.order);
+
+    for (let i = 0; i < sortedMilestones.length; i++) {
+      const milestone = sortedMilestones[i];
+      const milestoneThreshold = (milestone.amount / fundingGoal) * 100;
+      
+      // Check if this milestone threshold has been reached
+      if (fundingPercentage >= milestoneThreshold) {
+        // Check if this milestone is already approved
+        if (milestone.status !== "approved") {
+          targetMilestone = milestone;
+          milestoneIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (!targetMilestone) {
+      return next(new ErrorHandler("No milestone is available for unlock at current funding level", 400));
+    }
+
+    // Create fund unlock request linked to the target milestone
+    const fundUnlockRequest = await FundUnlockRequest.create({
+      projectId,
+      artistId: user._id,
+      projectMilestoneId: targetMilestone._id,
+      status: "pending",
+      requestedAt: new Date()
+    });
+
+    return SUCCESS(res, 201, "Fund unlock request submitted successfully", {
+      data: {
+        requestId: fundUnlockRequest._id,
+        projectId: fundUnlockRequest.projectId,
+        projectMilestoneId: fundUnlockRequest.projectMilestoneId,
+        milestoneName: targetMilestone.name,
+        milestoneAmount: targetMilestone.amount,
+        milestoneDescription: targetMilestone.description,
+        status: fundUnlockRequest.status,
+        requestedAt: fundUnlockRequest.requestedAt,
+        fundingPercentage: Math.round(fundingPercentage * 100) / 100,
+        totalRaised: fundsRaised,
+        fundingGoal: fundingGoal
+      }
+    });
+  }
+);
+
+const getFundUnlockRequestStatus = TryCatch(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { user } = req;
+    const { projectId } = req.params;
+
+    // Validate input
+    if (!projectId) {
+      return next(new ErrorHandler("Project ID is required", 400));
+    }
+
+    // Check if project exists and belongs to the artist
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return next(new ErrorHandler("Project not found", 404));
+    }
+
+    if (project.userId.toString() !== user._id.toString()) {
+      return next(new ErrorHandler("You can only check fund unlock requests for your own projects", 403));
+    }
+
+    // Check if there's a pending request for this project
+    const pendingRequest = await FundUnlockRequest.findOne({
+      projectId,
+      artistId: user._id,
+      status: "pending"
+    });
+
+    // Calculate total funds raised for this project
+    const totalRaised = await Payment.aggregate([
+      {
+        $match: {
+          projectId: new mongoose.Types.ObjectId(projectId),
+          status: paymentStatus.SUCCESS
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: "$amount" }
+        }
+      }
+    ]);
+
+    const fundsRaised = totalRaised[0]?.total || 0;
+    const fundingGoal = project.fundingGoal;
+    const fundingPercentage = (fundsRaised / fundingGoal) * 100;
+
+    return SUCCESS(res, 200, "Fund unlock request status fetched successfully", {
+      data: {
+        hasPendingRequest: !!pendingRequest,
+        pendingRequest: pendingRequest ? {
+          requestId: pendingRequest._id,
+          status: pendingRequest.status,
+          requestedAt: pendingRequest.requestedAt
+        } : null,
+        fundingStats: {
+          totalRaised: fundsRaised,
+          fundingGoal: fundingGoal,
+          fundingPercentage: Math.round(fundingPercentage * 100) / 100,
+          canRequestUnlock: fundingPercentage >= 50
+        }
+      }
+    });
+  }
+);
+
 export default {
   getFeaturedArtists,
   likeDislikeArtist,
   followUnfollowArtist,
-  getAnalytics
+  getAnalytics,
+  submitFundUnlockRequest,
+  getFundUnlockRequestStatus
 };
