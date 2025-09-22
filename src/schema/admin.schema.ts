@@ -56,6 +56,30 @@ const adminGetFundRequestDetailsSchema = {
   }),
 };
 
+const adminGetMilestoneProofsSchema = {
+  query: Joi.object({
+    page: numberValidation("Page", false, 1),
+    limit: numberValidation("Limit", false, 1),
+    status: specificStringValidation("Status", ["pending", "approved", "rejected"], false),
+  }),
+};
+
+const adminGetMilestoneProofDetailsSchema = {
+  params: Joi.object({
+    proofId: ObjectIdValidation("Proof ID"),
+  }),
+};
+
+const adminApproveRejectMilestoneProofSchema = {
+  params: Joi.object({
+    proofId: ObjectIdValidation("Proof ID"),
+  }),
+  body: Joi.object({
+    action: specificStringValidation("Action", ["approve", "reject"], true),
+    adminResponse: stringValidation("Admin Response", false),
+  }),
+};
+
 const adminSchema = {
   adminLoginSchema,
   adminGetDraftProjectsSchema,
@@ -64,6 +88,9 @@ const adminSchema = {
   adminGetFundUnlockRequestsSchema,
   adminApproveRejectFundRequestSchema,
   adminGetFundRequestDetailsSchema,
+  adminGetMilestoneProofsSchema,
+  adminGetMilestoneProofDetailsSchema,
+  adminApproveRejectMilestoneProofSchema,
 };
 
 export default adminSchema;

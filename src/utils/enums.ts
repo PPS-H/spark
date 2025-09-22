@@ -101,3 +101,9 @@ export const paymentType = {
   MILESTONE_TRANSFER: "milestone_transfer",
   REFUND: "refund",
 };
+
+export const milestoneProofStatus = {
+  PENDING: "pending",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+};

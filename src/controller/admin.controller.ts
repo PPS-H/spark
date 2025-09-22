@@ -7,7 +7,8 @@ import { getUserByEmail } from "../services/user.services";
 import Project from "../model/projectCampaign.model";
 import Payment from "../model/payment.model";
 import FundUnlockRequest from "../model/fundUnlockRequest.model";
-import { projectStatus, paymentStatus, paymentType } from "../utils/enums";
+import MilestoneProof from "../model/milestoneProof.model";
+import { projectStatus, paymentStatus, paymentType, milestoneProofStatus } from "../utils/enums";
 import mongoose from "mongoose";
 
 const adminLogin = TryCatch(
@@ -420,6 +421,161 @@ const approveRejectFundRequest = TryCatch(
   }
 );
 
+const getMilestoneProofs = TryCatch(
+  async (
+    req: Request<{}, {}, {}, { page?: string; limit?: string; status?: string }>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    const { page = "1", limit = "10", status } = req.query;
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build filter object
+    const filter: any = {};
+    if (status) {
+      filter.status = status;
+    }
+
+    // Get milestone proofs with pagination
+    const milestoneProofs = await MilestoneProof.find(filter)
+      .populate("projectId", "title status fundingGoal")
+      .populate("artistId", "username email profilePicture")
+      .populate("adminId", "username email")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    // Get total count
+    const totalCount = await MilestoneProof.countDocuments(filter);
+
+    return SUCCESS(res, 200, "Milestone proofs fetched successfully", {
+      data: {
+        milestoneProofs: milestoneProofs.map(proof => ({
+          proofId: proof._id,
+          projectId: proof.projectId,
+          artistId: proof.artistId,
+          milestoneId: proof.milestoneId,
+          description: proof.description,
+          proof: proof.proof,
+          status: proof.status,
+          adminId: proof.adminId,
+          adminResponse: proof.adminResponse,
+          createdAt: proof.createdAt,
+          updatedAt: proof.updatedAt
+        })),
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(totalCount / limitNum),
+          totalCount,
+          hasNextPage: pageNum < Math.ceil(totalCount / limitNum),
+          hasPrevPage: pageNum > 1
+        }
+      }
+    });
+  }
+);
+
+const getMilestoneProofDetails = TryCatch(
+  async (
+    req: Request<{ proofId: string }>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    const { proofId } = req.params;
+
+    const milestoneProof = await MilestoneProof.findById(proofId)
+      .populate("projectId", "title status fundingGoal milestones")
+      .populate("artistId", "username email profilePicture artistBio country")
+      .populate("adminId", "username email");
+
+    if (!milestoneProof) {
+      return next(new ErrorHandler("Milestone proof not found", 404));
+    }
+
+    // Find the specific milestone
+    const project = milestoneProof.projectId as any;
+    const milestone = project.milestones.find((m: any) => 
+      m._id.toString() === milestoneProof.milestoneId.toString()
+    );
+
+    return SUCCESS(res, 200, "Milestone proof details fetched successfully", {
+      data: {
+        proof: {
+          proofId: milestoneProof._id,
+          projectId: milestoneProof.projectId,
+          artistId: milestoneProof.artistId,
+          milestoneId: milestoneProof.milestoneId,
+          milestone: milestone ? {
+            name: milestone.name,
+            amount: milestone.amount,
+            description: milestone.description,
+            status: milestone.status,
+            order: milestone.order
+          } : null,
+          description: milestoneProof.description,
+          proof: milestoneProof.proof,
+          status: milestoneProof.status,
+          adminId: milestoneProof.adminId,
+          adminResponse: milestoneProof.adminResponse,
+          createdAt: milestoneProof.createdAt,
+          updatedAt: milestoneProof.updatedAt
+        }
+      }
+    });
+  }
+);
+
+const approveRejectMilestoneProof = TryCatch(
+  async (
+    req: Request<{ proofId: string }, {}, { action: string; adminResponse?: string }>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    const { proofId } = req.params;
+    const { action, adminResponse } = req.body;
+
+    const milestoneProof = await MilestoneProof.findById(proofId)
+      .populate("projectId", "title status")
+      .populate("artistId", "username email");
+
+    if (!milestoneProof) {
+      return next(new ErrorHandler("Milestone proof not found", 404));
+    }
+
+    if (milestoneProof.status !== milestoneProofStatus.PENDING) {
+      return next(new ErrorHandler("This proof has already been processed", 400));
+    }
+
+    // Update the proof
+    const updateData: any = {
+      status: action === "approve" ? milestoneProofStatus.APPROVED : milestoneProofStatus.REJECTED,
+      adminId: req.user?._id,
+    };
+
+    if (adminResponse) {
+      updateData.adminResponse = adminResponse;
+    }
+
+    const updatedProof = await MilestoneProof.findByIdAndUpdate(
+      proofId,
+      updateData,
+      { new: true }
+    ).populate("projectId", "title status")
+     .populate("artistId", "username email")
+     .populate("adminId", "username email");
+
+    return SUCCESS(res, 200, `Milestone proof ${action}d successfully`, {
+      data: {
+        proof: updatedProof,
+        action: action,
+        message: `Milestone proof has been ${action}d`,
+      },
+    });
+  }
+);
+
 const adminController = {
   adminLogin,
   getDraftProjects,
@@ -428,6 +584,9 @@ const adminController = {
   getFundUnlockRequests,
   getFundRequestDetails,
   approveRejectFundRequest,
+  getMilestoneProofs,
+  getMilestoneProofDetails,
+  approveRejectMilestoneProof,
 };
 
 export default adminController;

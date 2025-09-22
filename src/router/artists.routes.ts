@@ -4,6 +4,7 @@ import { authenticationMiddleware } from "../middleware/auth.middleware";
 import validate from "../middleware/validate.middleware";
 import contentSchema from "../schema/content.schema";
 import artistSchema from "../schema/artist.schema";
+import upload from "../middleware/multer.middleware";
 
 const artistRoutes = express.Router();
 
@@ -45,6 +46,14 @@ artistRoutes.get(
   authenticationMiddleware,
   validate(artistSchema.getFundUnlockRequestStatusSchema),
   artistController.getFundUnlockRequestStatus
+);
+
+artistRoutes.post(
+  "/milestone-proof",
+  authenticationMiddleware,
+  upload.single("proof"),
+  validate(artistSchema.addMilestoneProofSchema),
+  artistController.addMilestoneProof
 );
 
 export default artistRoutes;

@@ -54,4 +54,25 @@ adminRoutes.put(
   adminController.approveRejectFundRequest
 );
 
+adminRoutes.get(
+  "/milestone-proofs",
+  adminAuthenticationMiddleware,
+  validate(adminSchema.adminGetMilestoneProofsSchema),
+  adminController.getMilestoneProofs
+);
+
+adminRoutes.get(
+  "/milestone-proof/:proofId",
+  adminAuthenticationMiddleware,
+  validate(adminSchema.adminGetMilestoneProofDetailsSchema),
+  adminController.getMilestoneProofDetails
+);
+
+adminRoutes.put(
+  "/milestone-proof/:proofId/approve-reject",
+  adminAuthenticationMiddleware,
+  validate(adminSchema.adminApproveRejectMilestoneProofSchema),
+  adminController.approveRejectMilestoneProof
+);
+
 export default adminRoutes;
