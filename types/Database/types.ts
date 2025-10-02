@@ -21,6 +21,7 @@ export interface UserModel extends Document {
   website: string;
   companyDescription: string;
   isDeleted: boolean;
+  isEmailVerified: boolean;
 
   otp: number;
   otpExpiry: Date;

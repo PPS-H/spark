@@ -38,6 +38,7 @@ const userSchema = new Schema<UserModel>(
     website: { type: String },
     companyDescription: { type: String },
     isDeleted: { type: Boolean, default: false },
+    isEmailVerified: { type: Boolean, default: false },
     otp: { type: Number },
     otpExpiry: { type: Date },
     otpVerified: { type: Boolean },

@@ -93,12 +93,23 @@ const registerUser = TryCatch(
     // Create user
     const user = await User.create(payload);
 
-    return SUCCESS(res, 201, "User registered successfully", {
+    // Send OTP for email verification
+    const otp = generateOTP();
+    user.otp = Number(otp);
+    user.otpExpiry = new Date(addMinutesToCurrentTime(2));
+    user.otpVerified = false;
+    await user.save();
+    
+    // Send email verification OTP (using template 1 for registration)
+    await sendEmail(user.email, 1, otp);
+
+    return SUCCESS(res, 201, "User registered successfully. Please verify your email.", {
       data: {
         _id: user._id,
         username: user.username,
         email: user.email,
         role: user.role,
+        isEmailVerified: user.isEmailVerified,
       },
     });
   }
@@ -122,6 +133,11 @@ const loginUser = TryCatch(
     const isPasswordValid = await user.matchPassword(password);
     if (!isPasswordValid) {
       return next(new ErrorHandler("Invalid email or password", 401));
+    }
+
+    // Check if email is verified
+    if (!user.isEmailVerified) {
+      return next(new ErrorHandler("Email not verified. Please verify your email to continue.", 403));
     }
 
     const token = generateJwtToken({ userId: user._id, role: user?.role });
@@ -330,8 +346,7 @@ const sendOtp = TryCatch(
     res: Response,
     next: NextFunction
   ) => {
-    let { email, type } = req.body; // Forgot:1,ResendForgot:2
-    const emailTemplate = type == 1 ? 3 : 4;
+    let { email, type } = req.body; // Forgot:1,ResendForgot:2,EmailVerification:3,ResendEmailVerification:4
     email = email.toLowerCase();
 
     let query: any = { email };
@@ -343,12 +358,39 @@ const sendOtp = TryCatch(
     user.otpExpiry = new Date(addMinutesToCurrentTime(2));
     user.otpVerified = false;
     await user.save();
+
+    // Determine email template based on type
+    let emailTemplate: number;
+    let successMessage: string;
+    
+    switch (type) {
+      case 1: // Forgot password
+        emailTemplate = 3;
+        successMessage = "Password reset OTP sent successfully";
+        break;
+      case 2: // Resend forgot password
+        emailTemplate = 4;
+        successMessage = "Password reset OTP resent successfully";
+        break;
+      case 3: // Email verification
+        emailTemplate = 7;
+        successMessage = "Email verification OTP sent successfully";
+        break;
+      case 4: // Resend email verification
+        emailTemplate = 8;
+        successMessage = "Email verification OTP resent successfully";
+        break;
+      default:
+        emailTemplate = 3; // Default to forgot password
+        successMessage = "OTP sent successfully";
+    }
+
     await sendEmail(user.email, emailTemplate, otp);
 
     return SUCCESS(
       res,
       200,
-      `OTP ${type == 2 ? "resent" : "sent"} successfully`,
+      successMessage,
       {
         data: {
           _id: user._id,
@@ -380,11 +422,13 @@ const verifyOtp = TryCatch(
     user.otp = undefined;
     user.otpExpiry = undefined;
     user.otpVerified = true;
+    user.isEmailVerified = true; // Set email as verified
     await user.save();
     return SUCCESS(res, 200, `OTP verified successfully`, {
       data: {
         _id: user._id,
         role: user.role,
+        isEmailVerified: user.isEmailVerified,
       },
     });
   }

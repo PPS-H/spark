@@ -77,7 +77,31 @@ const emailTemplates = {
                 <h2 style="color: #FF5722;">Change Email OTP</h2>
                 <p>We received a request to Change Email reset OTP. Use the OTP below.</p>
                 <h3 style="color: #FF5722; font-size: 24px;">{{OTP}}</h3>
-                <p>If you didn’t request this, please ignore this email.</p>
+                <p>If you didn't request this, please ignore this email.</p>
+            </div>
+        `,
+  },
+  emailVerificationOtp: {
+    subject: "Verify Your Email - SPARK",
+    text: "Please verify your email to complete login.",
+    body: `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h2 style="color: #2196F3;">Email Verification Required</h2>
+                <p>Your account is not verified yet. Please use the OTP below to verify your email and complete your login.</p>
+                <h3 style="color: #2196F3; font-size: 24px;">{{OTP}}</h3>
+                <p>This OTP will expire in 2 minutes. If you didn't request this, please ignore this email.</p>
+            </div>
+        `,
+  },
+  resendEmailVerificationOtp: {
+    subject: "Resend Email Verification - SPARK",
+    text: "Please verify your email to complete login.",
+    body: `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h2 style="color: #FF9800;">Email Verification Resent</h2>
+                <p>We received a request to resend your email verification OTP. Please use the OTP below to verify your email and complete your login.</p>
+                <h3 style="color: #FF9800; font-size: 24px;">{{OTP}}</h3>
+                <p>This OTP will expire in 2 minutes. If you didn't request this, please ignore this email.</p>
             </div>
         `,
   },
@@ -104,6 +128,12 @@ function generateEmailBody(type: number, otp: string) {
       break;
     case 6:
       template = emailTemplates.updateEmailOtpSendEmail;
+      break;
+    case 7:
+      template = emailTemplates.emailVerificationOtp;
+      break;
+    case 8:
+      template = emailTemplates.resendEmailVerificationOtp;
       break;
     default:
       throw new Error("Invalid email type");

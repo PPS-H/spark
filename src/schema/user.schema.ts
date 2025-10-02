@@ -148,7 +148,7 @@ const verifyOTPSchema = {
 const sendOTPSchema = {
   body: Joi.object({
     email: emailValidation(),
-    type: specificNumberValidation("Type", [1]),
+    type: specificNumberValidation("Type", [1, 2, 3, 4]),
   }),
 };
 
