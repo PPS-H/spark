@@ -132,7 +132,12 @@ const updateUserProfileSchema = {
     investmentActivity: booleanValidation("Investment Activity", false),
     directMessages: booleanValidation("Direct Messages", false),
     autoPreview: booleanValidation("Auto Preview", false),
-    language: booleanValidation("Language", false),
+    language: Joi.string()
+      .valid('en', 'fr', 'es', 'pt', 'it', 'ja', 'zh', 'ko')
+      .optional()
+      .messages({
+        "any.only": "Language must be one of: en, fr, es, pt, it, ja, zh, ko",
+      }),
     darkMode: booleanValidation("Dark Mode", false),
   }),
 };

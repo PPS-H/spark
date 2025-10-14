@@ -49,7 +49,11 @@ const userSchema = new Schema<UserModel>(
     investmentActivity: { type: Boolean },
     directMessages: { type: Boolean },
     autoPreview: { type: Boolean },
-    language: { type: Boolean },
+    language: { 
+      type: String, 
+      enum: ['en', 'fr', 'es', 'pt', 'it', 'ja', 'zh', 'ko'],
+      default: 'en'
+    },
     darkMode: { type: Boolean },
 
     stripeCustomerId: { type: String },

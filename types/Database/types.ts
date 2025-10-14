@@ -34,7 +34,7 @@ export interface UserModel extends Document {
   investmentActivity: boolean;
   directMessages: boolean;
   autoPreview: boolean;
-  language: boolean;
+  language: string;
   darkMode: boolean;
 
   stripeCustomerId: string;

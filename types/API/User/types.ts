@@ -49,7 +49,7 @@ export type UpdateUserProfileRequest = {
   investmentActivity: boolean;
   directMessages: boolean;
   autoPreview: boolean;
-  language: boolean;
+  language: string;
   darkMode: boolean;
 };
 
