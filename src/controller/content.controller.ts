@@ -134,6 +134,8 @@ const getTrendingContent = TryCatch(
     // Handle different types
     if (type === "top") {
       return await getTopContent(req, res, user, page, limit, dateThreshold, search);
+    } else if (type === "images") {
+      return await getImages(req, res, user, page, limit, search);
     } else if (type === "songs") {
       return await getSongs(req, res, user, page, limit, search);
     } else if (type === "artists") {
@@ -141,7 +143,7 @@ const getTrendingContent = TryCatch(
     } else {
       return next(
         new ErrorHandler(
-          "Invalid type. Must be 'top', 'songs', or 'artists'",
+          "Invalid type. Must be 'top', 'images', 'songs', or 'artists'",
           400
         )
       );
@@ -149,7 +151,7 @@ const getTrendingContent = TryCatch(
   }
 );
 
-// TOP CONTENT - Most popular trending videos/content
+// TOP CONTENT - Most popular trending videos only
 const getTopContent = async (
   req: any,
   res: any,
@@ -161,7 +163,7 @@ const getTopContent = async (
 ) => {
   const contentMatchConditions: any = {
     isDeleted: false,
-    type: { $in: [contentType.VIDEO, contentType.IMAGE] },
+    type: contentType.VIDEO, // Only videos for top content
   };
 
   if (search) {
@@ -325,7 +327,135 @@ const getTopContent = async (
 
   return SUCCESS(res, 200, "Top trending content fetched successfully", {
     data: contentWithIsLiked,
-    type: "top", // always "top" so response model stays identical
+    type: "top",
+  });
+};
+
+// IMAGES - Image content only
+const getImages = async (
+  req: any,
+  res: any,
+  user: any,
+  page: number,
+  limit: number,
+  search: string
+) => {
+  const contentMatchConditions: any = {
+    isDeleted: false,
+    type: contentType.IMAGE, // Only images
+  };
+
+  if (search) {
+    contentMatchConditions.$or = [
+      { title: { $regex: search, $options: "i" } },
+      { genre: { $regex: search, $options: "i" } },
+      { description: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  const imagesPipeline: any = [
+    { $match: contentMatchConditions },
+
+    {
+      $lookup: {
+        from: "likes",
+        let: { contentId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$contentId", "$$contentId"] },
+                  {
+                    $in: [
+                      "$type",
+                      [likesType.IMAGE],
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        as: "likes",
+      },
+    },
+
+    {
+      $addFields: {
+        likeCount: { $size: "$likes" },
+        weeklyTrendingScore: {
+          $multiply: [
+            { $size: "$likes" },
+            {
+              $subtract: [
+                2,
+                {
+                  $divide: [
+                    { $subtract: [new Date(), "$createdAt"] },
+                    604800000, // 1 week
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    },
+
+    { $sort: { weeklyTrendingScore: -1, likeCount: -1, createdAt: -1 } },
+
+    {
+      $lookup: {
+        from: "users",
+        localField: "userId",
+        foreignField: "_id",
+        as: "user",
+        pipeline: [
+          {
+            $project: {
+              _id: 1,
+              username: 1,
+              email: 1,
+              role: 1,
+              artistBio: 1,
+              socialMediaLinks: 1,
+              country: 1,
+              favoriteGenre: 1,
+              profilePicture: 1,
+            },
+          },
+        ],
+      },
+    },
+
+    { $unwind: "$user" },
+    { $match: { "user.isDeleted": { $ne: true } } },
+    { $skip: (Number(page) - 1) * Number(limit) },
+    { $limit: Number(limit) },
+
+    {
+      $project: {
+        _id: 1,
+        title: 1,
+        file: 1,
+        genre: 1,
+        description: 1,
+        type: 1,
+        createdAt: 1,
+        likeCount: 1,
+        weeklyTrendingScore: 1,
+        user: 1,
+      },
+    },
+  ];
+
+  const images = await Content.aggregate(imagesPipeline);
+  const imagesWithIsLiked = await addIsLikedField(images, user._id);
+
+  return SUCCESS(res, 200, "Images fetched successfully", {
+    data: imagesWithIsLiked,
+    type: "images",
   });
 };
 

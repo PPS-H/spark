@@ -43,6 +43,7 @@ export const searchType = {
   SONGS: "songs",
   ARTISTS: "artists",
   TOP: "top",
+  IMAGES: "images",
 };
 
 export const projectDurationType = {
